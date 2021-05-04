@@ -16,10 +16,9 @@ cache:
   - "$HOME/.gradle/mongo"
 deploy:
   provider: script
-  script: "./gradlew bintrayPublish"
+  script: "./gradlew publish"
   skip_cleanup: true
   on:
     tags: true
-before_install:
+before_deploy:
 - openssl aes-256-cbc -K $encrypted_2e6b62dd1b86_key -iv $encrypted_2e6b62dd1b86_iv -in key.gpg.enc -out key.gpg -d
-
