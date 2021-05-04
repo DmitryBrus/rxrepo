@@ -18,7 +18,7 @@ import com.slimgears.rxrepo.sql.SchemaProvider;
 import com.slimgears.rxrepo.test.Inventory;
 import com.slimgears.rxrepo.test.Product;
 import com.slimgears.rxrepo.test.UniqueId;
-import com.slimgears.util.test.AnnotationRulesJUnit;
+import com.slimgears.util.junit.AnnotationRulesJUnit;
 import com.slimgears.util.test.logging.LogLevel;
 import com.slimgears.util.test.logging.UseLogLevel;
 import io.reactivex.Observable;

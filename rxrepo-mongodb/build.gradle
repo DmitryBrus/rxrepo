@@ -44,4 +44,5 @@ dependencies {
     embedImplementation libs.rxJava
     embedImplementation libs.slf4j
     embedImplementation libs.mongoReactive
+    testImplementation libs.junit
 }

@@ -16,4 +16,5 @@ dependencies {
     testImplementation libs.rxJava
     testImplementation project(':rxrepo-core')
     testImplementation libs.jacksonAnnotations, libs.jacksonDataBind
+    testImplementation libs.junit, libs.mockito
 }
