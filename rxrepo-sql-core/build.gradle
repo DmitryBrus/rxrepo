@@ -12,4 +12,6 @@ dependencies {
     testAnnotationProcessor libs.slimAutoValueUtils
     testAnnotationProcessor libs.autoValue
     testAnnotationProcessor project(':rxrepo-apt')
+
+    testImplementation libs.junit, libs.mockito
 }
