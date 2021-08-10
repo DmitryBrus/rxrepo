@@ -21,4 +21,5 @@ dependencies {
 
     testAnnotationProcessor libs.autoValue
     testAnnotationProcessor libs.slimAutoValueUtils
+    testImplementation libs.junit, libs.mockito
 }

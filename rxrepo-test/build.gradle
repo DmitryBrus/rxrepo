@@ -9,5 +9,5 @@ dependencies {
     implementation libs.guava
     implementation libs.junit
     implementation libs.rxJava
-    implementation libs.slimTestUtils, libs.slimTestUtilsLogback
+    implementation libs.slimTestUtils, libs.slimTestUtilsJunit, libs.slimTestUtilsLogback
 }

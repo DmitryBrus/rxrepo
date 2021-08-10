@@ -21,6 +21,7 @@ dependencies {
     testAnnotationProcessor libs.slimAutoValueUtils
     testImplementation libs.autoValueAnnotations
     testImplementation libs.jsr305
-    testImplementation libs.slimTestUtils, libs.slimTestUtilsLogback
+    testImplementation libs.slimTestUtils, libs.slimTestUtilsJunit, libs.slimTestUtilsLogback
     testImplementation project(':rxrepo-test')
+    testImplementation libs.junit
 }

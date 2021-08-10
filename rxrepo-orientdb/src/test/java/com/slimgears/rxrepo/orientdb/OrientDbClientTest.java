@@ -19,7 +19,7 @@ import com.slimgears.rxrepo.sql.SchemaProvider;
 import com.slimgears.rxrepo.test.*;
 import com.slimgears.util.generic.MoreStrings;
 import com.slimgears.util.stream.Streams;
-import com.slimgears.util.test.AnnotationRulesJUnit;
+import com.slimgears.util.junit.AnnotationRulesJUnit;
 import com.slimgears.util.test.logging.LogLevel;
 import com.slimgears.util.test.logging.UseLogLevel;
 import io.reactivex.Observable;
