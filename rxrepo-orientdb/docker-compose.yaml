@@ -1,7 +1,7 @@
 version: "3.8"
 services:
   orientdb:
-    image: library/orientdb:3.1.6
+    image: library/orientdb:3.0.37
     mem_limit: 8g
     environment:
       - ORIENTDB_ROOT_PASSWORD=root

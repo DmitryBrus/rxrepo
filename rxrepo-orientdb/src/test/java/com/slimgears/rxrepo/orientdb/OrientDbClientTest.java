@@ -20,6 +20,7 @@ import com.slimgears.rxrepo.test.*;
 import com.slimgears.util.generic.MoreStrings;
 import com.slimgears.util.stream.Streams;
 import com.slimgears.util.junit.AnnotationRulesJUnit;
+import com.slimgears.util.test.containers.UseContainer;
 import com.slimgears.util.test.logging.LogLevel;
 import com.slimgears.util.test.logging.UseLogLevel;
 import io.reactivex.Observable;
@@ -263,10 +264,9 @@ public class OrientDbClientTest {
     }
 
     @Test
+    @UseContainer
     public void testRemoteBulkInsert() throws Exception {
-        try (AutoCloseable ignored = RemoteOrientDbTestUtils.withOrient()){
-            testBulkInsert("remote:localhost/db", 100000);
-        }
+        testBulkInsert("remote:localhost/db", 100000);
     }
 
     @Test

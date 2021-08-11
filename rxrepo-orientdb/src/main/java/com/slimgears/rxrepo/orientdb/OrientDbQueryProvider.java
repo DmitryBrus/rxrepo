@@ -73,7 +73,7 @@ public class OrientDbQueryProvider extends SqlQueryProvider {
         return schemaProvider.createOrUpdate(metaClass)
                 .andThen(Observable.fromIterable(entities)
                         .buffer(bufferSize)
-                        .concatMapCompletable(buffer -> Completable.fromAction(() -> createAndSaveElements(metaClass, buffer))))
+                        .flatMapCompletable(buffer -> Completable.fromAction(() -> createAndSaveElements(metaClass, buffer))))
                 .doOnComplete(() -> log.debug("Total insert time: {}s", stopwatch.elapsed(TimeUnit.SECONDS)));
     }
 
