@@ -1312,14 +1312,12 @@ public abstract class AbstractRepositoryTest {
         int count = Optional.ofNullable(System.getProperty("testLargeUpdate.count"))
                 .map(Integer::valueOf)
                 .orElse(20000);
-        Observable.fromIterable(Products.createMany(count))
-                .buffer(10000)
-                .observeOn(Schedulers.io())
-                .flatMapCompletable(buff -> repository.entities(Product.metaClass).update(buff))
+        repository.entities(Product.metaClass).update(Products.createMany(count))
                 .test()
                 .await()
                 .assertNoErrors()
                 .assertComplete();
+        Assert.assertEquals(Long.valueOf(count), repository.entities(Product.metaClass).query().count().blockingGet());
     }
 
     @Test
