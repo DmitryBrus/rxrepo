@@ -23,13 +23,13 @@ public class Products {
                 ProductEntity.Type.ComputerSoftware
         };
 
-        Manufacturer manufacturer = Manufacturer.create(UniqueId.manufacturerId(0), "Manufacturer 0");
+        Manufacturer manufacturer = Manufacturer.create(UniqueId.manufacturerId(0), "Manufacturer-0");
 
         List<Inventory> inventories = IntStream.range(0, Math.max(1, count / 10))
                 .mapToObj(i -> Inventory
                         .builder()
                         .id(UniqueId.inventoryId(i))
-                        .name("Inventory " + i)
+                        .name("Inventory-" + i)
                         .manufacturer(manufacturer)
                         .build())
                 .collect(Collectors.toList());
@@ -40,7 +40,7 @@ public class Products {
                                 .mapToObj(i -> Vendor
                                         .builder()
                                         .id(UniqueId.vendorId(i))
-                                        .name("Vendor " + i)
+                                        .name("Vendor-" + i)
                                         .build()),
                         Stream.of((Vendor)null))
                 .collect(Collectors.toList());
@@ -53,7 +53,7 @@ public class Products {
         return IntStream.range(startingId, startingId + count)
                 .mapToObj(i -> Product.builder()
                         .key(UniqueId.productId(i))
-                        .name("Product " + i)
+                        .name("Product-" + i)
                         .type(productTypes[i % productTypes.length])
                         .inventory(inventories.get(i % inventories.size()))
                         .vendor(vendors.get(i % vendors.size()))

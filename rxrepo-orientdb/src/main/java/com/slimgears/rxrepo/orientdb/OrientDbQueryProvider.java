@@ -13,7 +13,6 @@ import com.orientechnologies.orient.core.storage.ORecordDuplicatedException;
 import com.slimgears.rxrepo.expressions.PropertyExpression;
 import com.slimgears.rxrepo.query.provider.QueryInfo;
 import com.slimgears.rxrepo.sql.*;
-import com.slimgears.rxrepo.util.LockProvider;
 import com.slimgears.rxrepo.util.SchedulingProvider;
 import com.slimgears.util.autovalue.annotations.HasMetaClassWithKey;
 import com.slimgears.util.autovalue.annotations.MetaClass;
@@ -26,11 +25,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ConcurrentModificationException;
-import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.stream.Collectors;
 
 public class OrientDbQueryProvider extends SqlQueryProvider {
     private final static Logger log = LoggerFactory.getLogger(OrientDbQueryProvider.class);
@@ -70,7 +67,7 @@ public class OrientDbQueryProvider extends SqlQueryProvider {
         return schemaProvider.createOrUpdate(metaClass)
                 .andThen(Observable.fromIterable(entities)
                         .buffer(bufferSize)
-                        .concatMapCompletable(buffer -> Completable.fromAction(() -> createAndSaveElements(metaClass, buffer))))
+                        .flatMapCompletable(buffer -> Completable.fromAction(() -> createAndSaveElements(metaClass, buffer))))
                 .doOnComplete(() -> log.debug("Total insert time: {}s", stopwatch.elapsed(TimeUnit.SECONDS)));
     }
 

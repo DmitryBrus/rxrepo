@@ -62,7 +62,7 @@ public abstract class AbstractOrientDbQueryProviderTest extends AbstractReposito
                 .decorate(
                         SubscribeOnSchedulingQueryProviderDecorator.create(updateScheduler, queryScheduler, Schedulers.from(Runnable::run)),
                         OperationTimeoutQueryProviderDecorator.create(Duration.ofSeconds(20), Duration.ofSeconds(360)))
-                .enableBatchSupport()
+                .enableBatchSupport(200)
                 .maxConnections(10)
                 .build();
     }

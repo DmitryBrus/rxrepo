@@ -64,7 +64,7 @@ public class OrientDbRepository {
         private String serverUser = "root";
         private String serverPassword = Optional.ofNullable(System.getenv("ORIENTDB_ROOT_PASSWORD")).orElse("root");
         private boolean batchSupport = false;
-        private int batchBufferSize = 20000;
+        private int batchBufferSize = 200;
         private int maxNotificationQueues = 10;
         private Duration maxQueueIdleTime = Duration.ofSeconds(120);
         private QueryProvider.Decorator decorator = QueryProvider.Decorator.identity();
@@ -89,8 +89,8 @@ public class OrientDbRepository {
             return this;
         }
 
-        public final Builder enableBatchSupport(boolean enable, int bufferSize) {
-            this.batchSupport = enable;
+        public final Builder enableBatchSupport(int bufferSize) {
+            this.batchSupport = true;
             this.batchBufferSize = bufferSize;
             return this;
         }
