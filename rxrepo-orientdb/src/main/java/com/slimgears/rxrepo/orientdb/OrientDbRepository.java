@@ -217,7 +217,8 @@ public class OrientDbRepository {
                             batchSupport ? OrientDbUpdateReferencesFirstQueryProviderDecorator.create() : UpdateReferencesFirstQueryProviderDecorator.create(),
                             OrientDbDropDatabaseQueryProviderDecorator.create(dbClient, dbName),
                             decorator)
-                    .buildRepository(config);
+                    .buildRepository(config)
+                    .onClose(repo -> dbClient.close());
         }
 
         private OrientDB createClient(String url, String serverUser, String serverPassword, String dbName, ODatabaseType dbType) {

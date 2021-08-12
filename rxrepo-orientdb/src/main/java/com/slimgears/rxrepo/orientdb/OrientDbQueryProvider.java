@@ -6,6 +6,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Table;
 import com.orientechnologies.orient.core.db.document.ODatabaseDocument;
 import com.orientechnologies.orient.core.exception.OConcurrentModificationException;
+import com.orientechnologies.orient.core.intent.OIntentMassiveInsert;
 import com.orientechnologies.orient.core.metadata.sequence.OSequence;
 import com.orientechnologies.orient.core.record.OElement;
 import com.orientechnologies.orient.core.sql.executor.OResultSet;
@@ -76,15 +77,16 @@ public class OrientDbQueryProvider extends SqlQueryProvider {
         AtomicLong seqNum = new AtomicLong();
         dbSessionProvider.withSession(dbSession -> {
             try {
-                dbSession.begin();
+                dbSession.declareIntent(new OIntentMassiveInsert());
+                //dbSession.begin();
                 OSequence sequence = dbSession.getMetadata().getSequenceLibrary().getSequence(OrientDbSchemaProvider.sequenceName);
                 seqNum.set(sequence.next());
                 Streams.fromIterable(entities)
                         .map(entity -> toOrientDbObject(entity, queryCache, dbSession, seqNum.get()))
                         .forEach(OElement::save);
-                dbSession.commit();
+                //dbSession.commit();
             } catch (OConcurrentModificationException | ORecordDuplicatedException e) {
-                dbSession.rollback();
+                //dbSession.rollback();
                 throw new ConcurrentModificationException(e.getMessage(), e);
             }
             //log.info("{} Written sequence num: {}", metaClass.simpleName(), seqNum.get());

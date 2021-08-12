@@ -59,6 +59,7 @@ public class OrientDbClientTest {
                 .forEach(System.out::println);
 
         session.close();
+        db.close();
         return db;
     }
 
@@ -162,6 +163,7 @@ public class OrientDbClientTest {
                     .assertComplete();
         } finally {
             dbClient.drop(dbName);
+            dbClient.close();
         }
     }
 
@@ -250,5 +252,6 @@ public class OrientDbClientTest {
         testObserver.awaitCount(1)
                 .assertValueCount(1)
                 .assertValueAt(0, 1L);
+        dbClient.close();
     }
 }

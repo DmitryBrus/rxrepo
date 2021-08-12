@@ -1304,7 +1304,7 @@ public abstract class AbstractRepositoryTest {
     @Test
     @UseLogLevel(LogLevel.DEBUG)
     public void testLargeUpdate() throws InterruptedException {
-        repository.entities(Product.metaClass).update(Products.createMany(2000))
+        repository.entities(Product.metaClass).update(Products.createMany(10000))
                 .test()
                 .await()
                 .assertNoErrors()
