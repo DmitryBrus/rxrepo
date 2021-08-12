@@ -1,8 +1,8 @@
 package com.slimgears.rxrepo.orientdb;
 
 import com.google.common.collect.ImmutableMap;
-import com.orientechnologies.orient.core.Orient;
 import com.orientechnologies.orient.core.config.OGlobalConfiguration;
+import com.orientechnologies.orient.core.db.ODatabaseSession;
 import com.orientechnologies.orient.core.db.ODatabaseType;
 import com.orientechnologies.orient.core.db.OrientDB;
 import com.orientechnologies.orient.core.db.OrientDBConfig;
@@ -21,6 +21,8 @@ import javax.annotation.Nonnull;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.Executor;
 import java.util.function.Function;
 
@@ -49,9 +51,11 @@ public class OrientDbRepository {
         private String user = "admin";
         private String password = "admin";
         private String serverUser = "root";
-        private String serverPassword = "root";
+        private String serverPassword = Optional.ofNullable(System.getenv("ORIENTDB_ROOT_PASSWORD")).orElse("root");
         private boolean batchSupport = false;
         private int batchBufferSize = 2000;
+        private int maxNotificationQueues = 10;
+        private Duration maxQueueIdleTime = Duration.ofSeconds(120);
         private QueryProvider.Decorator decorator = QueryProvider.Decorator.identity();
         private Function<Executor, Executor> executorDecorator = Function.identity();
 
@@ -138,6 +142,47 @@ public class OrientDbRepository {
             this.decorator = this.decorator.andThen(QueryProvider.Decorator.of(decorators));
             return this;
         }
+//
+//        public final Repository build() {
+//            Objects.requireNonNull(url);
+//            Objects.requireNonNull(serverUser);
+//            Objects.requireNonNull(serverPassword);
+//            Objects.requireNonNull(dbName);
+//            Objects.requireNonNull(dbType);
+//            Objects.requireNonNull(user);
+//            Objects.requireNonNull(password);
+//
+//            Lazy<OrientDB> dbClient = Lazy.of(() -> createClient(url, serverUser, serverPassword, dbName, dbType));
+//
+//            AtomicInteger currentlyActiveSessions = new AtomicInteger();
+//            MetricCollector.Gauge activeSessionsGauge = metrics.gauge("activeSessions");
+//
+//            OrientDbSessionProvider dbSessionProvider = OrientDbSessionProvider.create(
+//                    () -> {
+//                        ODatabaseSession dbSession = dbClient.get().open(dbName, user, password);
+//                        int newCount = currentlyActiveSessions.incrementAndGet();
+//                        log.debug("Created database connection (currently active connections: {})", newCount);
+//                        activeSessionsGauge.record(newCount);
+//                        return dbSession;
+//                    },
+//                    dbSession -> {
+//                        int newCount = currentlyActiveSessions.decrementAndGet();
+//                        log.debug("Database connection closed (currently active connections: {}", newCount);
+//                        activeSessionsGauge.record(newCount);
+//                    });
+//
+//            RepositoryConfig config = configBuilder.build();
+//            return serviceFactoryBuilder(dbSessionProvider)
+//                    .decorate(
+//                            LockQueryProviderDecorator.create(SemaphoreLockProvider.create()),
+//                            LiveQueryProviderDecorator.create(Duration.ofMillis(config.aggregationDebounceTimeMillis())),
+//                            ObserveOnSchedulingQueryProviderDecorator.create(schedulingProvider.get()),
+//                            batchSupport ? OrientDbUpdateReferencesFirstQueryProviderDecorator.create() : UpdateReferencesFirstQueryProviderDecorator.create(),
+//                            OrientDbDropDatabaseQueryProviderDecorator.create(dbClient, dbName),
+//                            decorator)
+//                    .buildRepository(config)
+//                    .onClose(repo -> dbClient.close());
+//        }
 
         private OrientDB createClient(String url, String serverUser, String serverPassword, String dbName, ODatabaseType dbType) {
             OrientDBConfig config = OrientDBConfig.builder()
@@ -211,7 +256,7 @@ public class OrientDbRepository {
                             RetryOnConcurrentConflictQueryProviderDecorator.create(Duration.ofMillis(config.retryInitialDurationMillis()), config.retryCount()),
                             OrientDbUpdateReferencesFirstQueryProviderDecorator.create(),
                             BatchUpdateQueryProviderDecorator.create(batchBufferSize),
-                            LockQueryProviderDecorator.create(SemaphoreLockProvider.create()),
+                            //LockQueryProviderDecorator.create(SemaphoreLockProvider.create()),
                             LiveQueryProviderDecorator.create(Duration.ofMillis(config.aggregationDebounceTimeMillis())),
                             ObserveOnSchedulingQueryProviderDecorator.create(Schedulers.io()),
                             OrientDbDropDatabaseQueryProviderDecorator.create(dbClient, dbName),

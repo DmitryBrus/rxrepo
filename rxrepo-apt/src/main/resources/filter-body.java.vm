@@ -52,9 +52,9 @@
 #foreach ($p in $filterableProperties)
             @$[javax.annotation.Nullable] @$[com.fasterxml.jackson.annotation.JsonProperty]("$p.name()") #filterType($p) ${p.name()},
 #end
-            @$[javax.annotation.Nullable] @$[com.fasterxml.jackson.annotation.JsonProperty]("equalsTo") $targetClass.simpleName() equalsTo,
-            @$[javax.annotation.Nullable] @$[com.fasterxml.jackson.annotation.JsonProperty]("notEqualsTo") $targetClass.simpleName() notEqualsTo,
-            @$[javax.annotation.Nullable] @$[com.fasterxml.jackson.annotation.JsonProperty]("equalsToAny") $[com.google.common.collect.ImmutableList]<$targetClass.simpleName()> equalsToAny,
+            @$[javax.annotation.Nullable] @$[com.fasterxml.jackson.annotation.JsonProperty]("equalsTo") $targetClass.simpleName()#typeParams($sourceClass) equalsTo,
+            @$[javax.annotation.Nullable] @$[com.fasterxml.jackson.annotation.JsonProperty]("notEqualsTo") $targetClass.simpleName()#typeParams($sourceClass) notEqualsTo,
+            @$[javax.annotation.Nullable] @$[com.fasterxml.jackson.annotation.JsonProperty]("equalsToAny") $[com.google.common.collect.ImmutableList]<$targetClass.simpleName()#typeParams($sourceClass)> equalsToAny,
             @$[javax.annotation.Nullable] @$[com.fasterxml.jackson.annotation.JsonProperty]("isNull") Boolean isNull) {
             return Filter.#typeParams($sourceClass)builder()
 #if ($isSearchable)

@@ -49,6 +49,10 @@ public abstract class AbstractOrientDbQueryProviderTest extends AbstractReposito
 
     protected Repository createRepository(String dbUrl, OrientDbRepository.Type dbType) {
         String name = MoreStrings.format(dbName, dbType, testNameRule.getMethodName().replaceAll("\\[\\d+]", ""));
+//        ExecutorService updatePool = Executors.newWorkStealingPool(5);
+//        Scheduler updateScheduler = Schedulers.from(updatePool);
+//        ExecutorService queryPool = Executors.newWorkStealingPool(5);
+//        Scheduler queryScheduler = Schedulers.from(queryPool);
         return OrientDbRepository
                 .builder()
                 .url(dbUrl)
@@ -57,10 +61,22 @@ public abstract class AbstractOrientDbQueryProviderTest extends AbstractReposito
                 .type(dbType)
                 .name(name)
                 .decorate(
-                        OperationTimeoutQueryProviderDecorator.create(Duration.ofSeconds(20), Duration.ofMinutes(30)))
-                .enableBatchSupport(2000)
+                        //SubscribeOnSchedulingQueryProviderDecorator.create(updateScheduler, queryScheduler, Schedulers.from(Runnable::run)),
+                        OperationTimeoutQueryProviderDecorator.create(Duration.ofSeconds(20), Duration.ofSeconds(360)))
+                .enableBatchSupport(100)
                 .maxConnections(20)
                 .build();
+//                .onClose(repo -> {
+//                    updatePool.shutdown();
+//                    queryPool.shutdown();
+//                    try {
+//                        Assert.assertTrue(updatePool.awaitTermination(5000, TimeUnit.MILLISECONDS));
+//                        Assert.assertTrue(queryPool.awaitTermination(5000, TimeUnit.MILLISECONDS));
+//                    } catch (InterruptedException e) {
+//                        e.printStackTrace();
+//                    }
+//                });
+
     }
 
     @Test
@@ -74,9 +90,9 @@ public abstract class AbstractOrientDbQueryProviderTest extends AbstractReposito
     public void testRunQueriesFromMultipleThreads() throws InterruptedException {
         products.update(Products.createMany(1000)).blockingAwait();
         Observable.range(0, 10)
-                .observeOn(Schedulers.newThread())
                 .flatMap(i -> Observable.range(0, 100)
-                        .map(j -> products.query().limit(1).retrieve()))
+                        .map(j -> products.query().limit(1).retrieve())
+                        .subscribeOn(Schedulers.computation()))
                 .ignoreElements()
                 .test()
                 .await()
@@ -87,23 +103,23 @@ public abstract class AbstractOrientDbQueryProviderTest extends AbstractReposito
     //@UseLogLevel(LogLevel.TRACE)
     public void testRunUpdatesFromMultipleThreads() throws InterruptedException {
         Observable.range(0, 10)
-                .observeOn(Schedulers.newThread())
                 .flatMapCompletable(i -> Observable
                         .range(0, 100)
-                        .flatMapCompletable(j -> products.update(Products.createMany(10))))
+                        .flatMapCompletable(j -> products.update(Products.createMany(10)))
+                        .subscribeOn(Schedulers.computation()))
                 .test()
                 .await()
                 .assertNoErrors();
     }
 
-    @Test @Ignore
+    @Test
     @UseLogLevel(LogLevel.TRACE)
     public void testLiveQueriesFromMultipleThreads() throws InterruptedException {
         Observable.range(0, 10)
-                .observeOn(Schedulers.newThread())
                 .flatMap(i -> Observable
                         .range(0, 100)
-                        .flatMap(j -> products.update(Products.createOne(i*100 + j)).ignoreElement().andThen(products.queryAndObserve())))
+                        .flatMap(j -> products.update(Products.createOne(i*100 + j)).ignoreElement().andThen(products.queryAndObserve()))
+                        .subscribeOn(Schedulers.computation()))
                 .take(2000)
                 .test()
                 .await()

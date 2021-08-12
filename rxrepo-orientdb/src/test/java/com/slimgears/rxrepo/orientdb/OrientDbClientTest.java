@@ -1,11 +1,11 @@
 //package com.slimgears.rxrepo.orientdb;
 //
-//import com.google.common.base.Stopwatch;
 //import com.orientechnologies.common.exception.OException;
 //import com.orientechnologies.common.serialization.types.OBinaryTypeSerializer;
+//import com.orientechnologies.orient.core.command.OCommandExecutor;
+//import com.orientechnologies.orient.core.command.OCommandRequestText;
 //import com.orientechnologies.orient.core.db.*;
 //import com.orientechnologies.orient.core.db.document.ODatabaseDocument;
-//import com.orientechnologies.orient.core.id.ORID;
 //import com.orientechnologies.orient.core.index.ORuntimeKeyIndexDefinition;
 //import com.orientechnologies.orient.core.metadata.schema.OClass;
 //import com.orientechnologies.orient.core.metadata.schema.OType;
@@ -13,12 +13,12 @@
 //import com.orientechnologies.orient.core.record.OElement;
 //import com.orientechnologies.orient.core.record.impl.ODocument;
 //import com.orientechnologies.orient.core.sql.executor.OResult;
-//import com.slimgears.rxrepo.sql.CacheSqlSchemaGeneratorDecorator;
-//import com.slimgears.rxrepo.sql.DigestKeyEncoder;
-//import com.slimgears.rxrepo.sql.SqlSchemaGenerator;
-//import com.slimgears.rxrepo.test.*;
-//import com.slimgears.util.generic.MoreStrings;
-//import com.slimgears.util.test.AnnotationRulesJUnit;
+//import com.slimgears.rxrepo.sql.CacheSchemaProviderDecorator;
+//import com.slimgears.rxrepo.sql.SchemaProvider;
+//import com.slimgears.rxrepo.test.Inventory;
+//import com.slimgears.rxrepo.test.Product;
+//import com.slimgears.rxrepo.test.UniqueId;
+//import com.slimgears.util.junit.AnnotationRulesJUnit;
 //import com.slimgears.util.test.logging.LogLevel;
 //import com.slimgears.util.test.logging.UseLogLevel;
 //import io.reactivex.Observable;
@@ -29,9 +29,7 @@
 //import org.junit.Test;
 //import org.junit.rules.MethodRule;
 //
-//import java.util.concurrent.TimeUnit;
 //import java.util.function.Supplier;
-//import java.util.stream.IntStream;
 //
 //public class OrientDbClientTest {
 //    @Rule public final MethodRule annotationRules = AnnotationRulesJUnit.rule();
@@ -61,6 +59,7 @@
 //                .forEach(System.out::println);
 //
 //        session.close();
+//        db.close();
 //        return db;
 //    }
 //
@@ -155,15 +154,16 @@
 //        try {
 //            ODatabasePool oDatabasePool = new ODatabasePool(dbClient, dbName, "admin", "admin");
 //            Supplier<ODatabaseDocument> dbSessionSupplier = oDatabasePool::acquire;
-//            SqlSchemaGenerator sqlSchemaGenerator = new OrientDbSqlSchemaGenerator(OrientDbSessionProvider.create(dbSessionSupplier));
-//            SqlSchemaGenerator cachedSqlSchemaGenerator = CacheSqlSchemaGeneratorDecorator.decorate(sqlSchemaGenerator);
-//            cachedSqlSchemaGenerator.createOrUpdate(Inventory.metaClass)
+//            SchemaProvider schemaProvider = new OrientDbSchemaProvider(OrientDbSessionProvider.create(dbSessionSupplier));
+//            SchemaProvider cachedSchemaProvider = CacheSchemaProviderDecorator.decorate(schemaProvider);
+//            cachedSchemaProvider.createOrUpdate(Inventory.metaClass)
 //                    .test()
 //                    .await()
 //                    .assertNoErrors()
 //                    .assertComplete();
 //        } finally {
 //            dbClient.drop(dbName);
+//            dbClient.close();
 //        }
 //    }
 //
@@ -219,10 +219,9 @@
 //        dbClient.createIfNotExists(dbName, ODatabaseType.MEMORY);
 //        OrientDbObjectConverter converter = OrientDbObjectConverter.create(
 //                metaClass -> new ODocument(metaClass.simpleName()),
-//                ((c, entity) -> (ORID) c.toOrientDbObject(entity)),
-//                DigestKeyEncoder.create());
+//                ((c, entity) -> (OElement) c.toOrientDbObject(entity)));
 //        OrientDbSessionProvider sessionProvider = OrientDbSessionProvider.create(() -> dbClient.open(dbName, "admin", "admin"));
-//        OrientDbSqlSchemaGenerator schemaProvider = new OrientDbSqlSchemaGenerator(sessionProvider);
+//        OrientDbSchemaProvider schemaProvider = new OrientDbSchemaProvider(sessionProvider);
 //        schemaProvider.createOrUpdate(Inventory.metaClass)
 //                .andThen(schemaProvider.createOrUpdate(Product.metaClass))
 //                .blockingAwait();
@@ -253,43 +252,6 @@
 //        testObserver.awaitCount(1)
 //                .assertValueCount(1)
 //                .assertValueAt(0, 1L);
-//    }
-//
-//    @Test
-//    public void testRemoteBulkInsert() throws Exception {
-//        try (AutoCloseable ignored = RemoteOrientDbTestUtils.withOrient()){
-//            testBulkInsert("remote:localhost/db", 100000);
-//        }
-//    }
-//
-//    @Test
-//    public void testEmbeddedBulkInsert() {
-//        testBulkInsert("embedded:db", 100000);
-//    }
-//
-//    private void testBulkInsert(String url, int count) {
-//        OrientDB dbClient = new OrientDB(url, "root", "root", OrientDBConfig.defaultConfig());
-//        if (dbClient.exists(dbName)) {
-//            dbClient.drop(dbName);
-//        }
-//        dbClient.createIfNotExists(dbName, ODatabaseType.MEMORY);
-//        OrientDbObjectConverter converter = OrientDbObjectConverter.create(
-//                metaClass -> new ODocument(metaClass.simpleName()),
-//                ((c, entity) -> (ORID) c.toOrientDbObject(entity)),
-//                DigestKeyEncoder.create("SHA-1", 8));
-//        OrientDbSessionProvider sessionProvider = OrientDbSessionProvider.create(() -> dbClient.open(dbName, "admin", "admin"));
-//        OrientDbSqlSchemaGenerator schemaProvider = new OrientDbSqlSchemaGenerator(sessionProvider);
-//        schemaProvider.createOrUpdate(Manufacturer.metaClass).blockingAwait();
-//
-//        Stopwatch stopwatch = Stopwatch.createStarted();
-//        sessionProvider.withSession(s -> {
-//            IntStream.range(1, count + 1)
-//                    .mapToObj(UniqueId::manufacturerId)
-//                    .map(id -> Manufacturer.create(id, "Manufacturer" + id.id()))
-//                    .map(converter::toOrientDbObject)
-//                    .map(OElement.class::cast)
-//                    .forEach(OElement::save);
-//        });
-//        System.out.println(MoreStrings.format("{}: {} rows stored in {} seconds", url, count, stopwatch.elapsed(TimeUnit.SECONDS)));
+//        dbClient.close();
 //    }
 //}

@@ -18,7 +18,7 @@ dependencies {
     implementation libs.slf4j
 
     testImplementation project(':rxrepo-test')
-    testImplementation libs.slimTestUtils, libs.slimTestUtilsLogback
+    testImplementation libs.slimTestUtils, libs.slimTestUtilsJunit, libs.slimTestUtilsLogback
     testImplementation sourceSets.embed.output
     testImplementation libs.flapDoodle
     testImplementation libs.junit, libs.mockito
@@ -27,4 +27,5 @@ dependencies {
     embedImplementation libs.rxJava
     embedImplementation libs.slf4j
     embedImplementation libs.mongoReactive
+    testImplementation libs.junit
 }

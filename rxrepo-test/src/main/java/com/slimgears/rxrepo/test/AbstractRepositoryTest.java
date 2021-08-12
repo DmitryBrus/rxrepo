@@ -46,7 +46,7 @@ public abstract class AbstractRepositoryTest {
 
     @Rule public final TestName testNameRule = new TestName();
     @Rule public final MethodRule annotationRules = AnnotationRulesJUnit.rule();
-    @Rule public final Timeout timeout = new Timeout(2, TimeUnit.MINUTES);
+    @Rule public final Timeout timeout = new Timeout(4, TimeUnit.MINUTES);
     @Rule public final TestRule memoryMeter = new MemoryUsageRule("Test");
     @ClassRule public static final TestRule classMemoryMeter = new MemoryUsageRule("Class");
 
@@ -66,7 +66,7 @@ public abstract class AbstractRepositoryTest {
     public void tearDown() {
         System.out.println("Test finished: " + testNameRule.getMethodName());
         if (System.getProperty("tearDown.noClear") != null) {
-            this.repository.clear().doOnComplete(this.repository::close).blockingAwait();
+            this.repository.clear().doOnComplete(this.repository::close).blockingAwait(10000, TimeUnit.MILLISECONDS);
         } else {
             this.repository.close();
         }
@@ -128,7 +128,7 @@ public abstract class AbstractRepositoryTest {
     public void testAddAndRetrieveByKey() throws InterruptedException {
         EntitySet<UniqueId, Product> productSet = repository.entities(Product.metaClass);
         Product product = Product.builder()
-                .name("Product 1")
+                .name("Product-1")
                 .key(UniqueId.productId(1))
                 .price(1001)
                 .build();
@@ -142,7 +142,7 @@ public abstract class AbstractRepositoryTest {
     public void testUpdateReferencedEntity() throws InterruptedException {
         EntitySet<UniqueId, Product> productSet = repository.entities(Product.metaClass);
         Product product = Product.builder()
-                .name("Product 1")
+                .name("Product-1")
                 .key(UniqueId.productId(1))
                 .price(1001)
                 .build();
@@ -153,7 +153,7 @@ public abstract class AbstractRepositoryTest {
 
         Inventory inventory = Inventory.builder()
                 .id(UniqueId.inventoryId(1))
-                .name("Inventory 1")
+                .name("Inventory-1")
                 .build();
 
         Product updatedProduct = product.toBuilder().inventory(inventory).build();
@@ -172,7 +172,7 @@ public abstract class AbstractRepositoryTest {
     public void testAddAlreadyExistingObject() throws InterruptedException {
         EntitySet<UniqueId, Product> productSet = repository.entities(Product.metaClass);
         Product product = Product.builder()
-                .name("Product 1")
+                .name("Product-1")
                 .key(UniqueId.productId(1))
                 .price(1001)
                 .build();
@@ -186,10 +186,10 @@ public abstract class AbstractRepositoryTest {
     public void testAddRecursiveInventory() throws InterruptedException {
         Inventory inventory = Inventory.builder()
                 .id(UniqueId.inventoryId(1))
-                .name("Inventory 1")
+                .name("Inventory-1")
                 .inventory(Inventory.builder()
                         .id(UniqueId.inventoryId(2))
-                        .name("Inventory 2")
+                        .name("Inventory-2")
                         .build())
                 .build();
 
@@ -227,23 +227,23 @@ public abstract class AbstractRepositoryTest {
         EntitySet<UniqueId, Inventory> inventorySet = repository.entities(Inventory.metaClass);
         List<Product> products = Arrays.asList(
                 Product.builder()
-                        .name("Product 1")
+                        .name("Product-1")
                         .key(UniqueId.productId(1))
                         .price(1001)
                         .inventory(Inventory
                                 .builder()
                                 .id(UniqueId.inventoryId(2))
-                                .name("Inventory 2")
+                                .name("Inventory-2")
                                 .build())
                         .build(),
                 Product.builder()
-                        .name("Product 2")
+                        .name("Product-2")
                         .key(UniqueId.productId(2))
                         .price(1002)
                         .inventory(Inventory
                                 .builder()
                                 .id(UniqueId.inventoryId(2))
-                                .name("Inventory 2")
+                                .name("Inventory-2")
                                 .build())
                         .build());
 
@@ -255,8 +255,8 @@ public abstract class AbstractRepositoryTest {
                 .assertComplete()
 //                .assertValueCount(1)
 //                .assertValueAt(0, items -> items.size() == 2)
-//                .assertValueAt(0, items -> items.stream().anyMatch(p -> Objects.equals(p.name(), "Product 1")))
-//                .assertValueAt(0, items -> items.stream().anyMatch(p -> Objects.equals(p.name(), "Product 2")));
+//                .assertValueAt(0, items -> items.stream().anyMatch(p -> Objects.equals(p.name(), "Product-1")))
+//                .assertValueAt(0, items -> items.stream().anyMatch(p -> Objects.equals(p.name(), "Product-2")));
         ;
 
         Assert.assertEquals(Long.valueOf(1), inventorySet.query().count().blockingGet());
@@ -305,7 +305,7 @@ public abstract class AbstractRepositoryTest {
                 .test();
 
         productSet.delete()
-                .where(Product.$.searchText("Product 1"))
+                .where(Product.$.searchText("Product-1"))
                 .execute()
                 .test()
                 .await()
@@ -347,7 +347,7 @@ public abstract class AbstractRepositoryTest {
         prodUpdateTester2
                 .await()
                 .assertNoErrors()
-                .assertValue(p -> "Product 0 Updated name #1 Updated name #2".equals(p.get().name()));
+                .assertValue(p -> "Product-0 Updated name #1 Updated name #2".equals(p.get().name()));
     }
 
     @Test
@@ -414,7 +414,7 @@ public abstract class AbstractRepositoryTest {
                 .assertValue(p -> p.name() == null)
                 .assertValue(p -> p.key().id() == 131)
                 .assertValue(p -> p.price() == 151)
-                .assertValue(p -> "Inventory 11".equals(requireNonNull(p.inventory()).name()))
+                .assertValue(p -> "Inventory-11".equals(requireNonNull(p.inventory()).name()))
                 .assertValueCount(1);
 
         productSet
@@ -443,7 +443,7 @@ public abstract class AbstractRepositoryTest {
 
         productSet
                 .query()
-                .where(Product.$.searchText("Product 31 ComputeHardware"))
+                .where(Product.$.searchText("Product-31 ComputeHardware"))
                 .select()
                 .retrieve(Product.$.key, Product.$.name, Product.$.price, Product.$.type, Product.$.inventory.id, Product.$.inventory.name)
                 .doOnNext(System.out::println)
@@ -509,7 +509,7 @@ public abstract class AbstractRepositoryTest {
                 .assertNoTimeout()
                 .assertValueAt(15, pr -> {
                     System.out.println(pr);
-                    Matcher matcher = Pattern.compile("Product ([0-9]+) - Inventory ([0-9]+)").matcher(requireNonNull(pr.name()));
+                    Matcher matcher = Pattern.compile("Product-([0-9]+) - Inventory-([0-9]+)").matcher(requireNonNull(pr.name()));
                     return matcher.matches() &&
                             Integer.parseInt(matcher.group(1)) == pr.key().id() &&
                             Integer.parseInt(matcher.group(2)) == requireNonNull(pr.inventory()).id().id();
@@ -580,7 +580,7 @@ public abstract class AbstractRepositoryTest {
                 .test()
                 .await()
                 .assertNoErrors()
-                .assertValueAt(1, p -> "Product 1".equals(p.name()));
+                .assertValueAt(1, p -> "Product-1".equals(p.name()));
     }
 
     @SuppressWarnings("ConstantConditions")
@@ -729,7 +729,7 @@ public abstract class AbstractRepositoryTest {
         products.update(Product
                 .builder()
                 .key(UniqueId.productId(1))
-                .name("Product 1")
+                .name("Product-1")
                 .price(101)
                 .build())
                 .ignoreElement()
@@ -738,7 +738,7 @@ public abstract class AbstractRepositoryTest {
         products.update(Product
                 .builder()
                 .key(UniqueId.productId(2))
-                .name("Product 2")
+                .name("Product-2")
                 .price(99)
                 .build())
                 .ignoreElement()
@@ -764,7 +764,7 @@ public abstract class AbstractRepositoryTest {
         products.update(Product
                 .builder()
                 .key(UniqueId.productId(2))
-                .name("Product 2")
+                .name("Product-2")
                 .price(102)
                 .build())
                 .ignoreElement().blockingAwait();
@@ -777,7 +777,7 @@ public abstract class AbstractRepositoryTest {
         products.update(Product
                 .builder()
                 .key(UniqueId.productId(1))
-                .name("Product 1")
+                .name("Product-1")
                 .price(95)
                 .build())
                 .ignoreElement().blockingAwait();
@@ -790,7 +790,7 @@ public abstract class AbstractRepositoryTest {
         products.update(Product
                 .builder()
                 .key(UniqueId.productId(3))
-                .name("Product 3")
+                .name("Product-3")
                 .price(92)
                 .build())
                 .ignoreElement().blockingAwait();
@@ -810,7 +810,7 @@ public abstract class AbstractRepositoryTest {
                 .test()
                 .awaitCount(1)
                 .assertValue(l -> l.size() == 2)
-                .assertValue(l -> l.contains("Inventory 0"));
+                .assertValue(l -> l.contains("Inventory-0"));
 
         products.query()
                 .selectDistinct(Product.$.inventory)
@@ -942,24 +942,24 @@ public abstract class AbstractRepositoryTest {
                 .test()
                 .assertOf(countAtLeast(1))
                 .assertValueAt(0, l -> l.size() == 3)
-                .assertValueAt(0, l -> Objects.equals(l.get(0).name(), "Product 2"))
-                .assertValueAt(0, l -> Objects.equals(l.get(2).name(), "Product 4"));
+                .assertValueAt(0, l -> Objects.equals(l.get(0).name(), "Product-2"))
+                .assertValueAt(0, l -> Objects.equals(l.get(2).name(), "Product-4"));
 
         products.update(Arrays.asList(
                 Product.builder()
-                        .name("Product 3-1")
+                        .name("Product-3-1")
                         .key(UniqueId.productId(11))
                         .price(100)
                         .type(ProductEntity.Type.ComputeHardware)
                         .build(),
                 Product.builder()
-                        .name("Product 1-1")
+                        .name("Product-1-1")
                         .key(UniqueId.productId(13))
                         .price(100)
                         .type(ProductEntity.Type.ComputeHardware)
                         .build(),
                 Product.builder()
-                        .name("Product 5-1")
+                        .name("Product-5-1")
                         .key(UniqueId.productId(12))
                         .price(100)
                         .type(ProductEntity.Type.ComputeHardware)
@@ -969,9 +969,9 @@ public abstract class AbstractRepositoryTest {
         productTestObserver
                 .assertOf(countAtLeast(2))
                 .assertValueAt(1, l -> l.size() == 3)
-                .assertValueAt(1, l -> Objects.equals(l.get(0).name(), "Product 2"))
-                .assertValueAt(1, l -> Objects.equals(l.get(1).name(), "Product 3"))
-                .assertValueAt(1, l -> Objects.equals(l.get(2).name(), "Product 3-1"));
+                .assertValueAt(1, l -> Objects.equals(l.get(0).name(), "Product-2"))
+                .assertValueAt(1, l -> Objects.equals(l.get(1).name(), "Product-3"))
+                .assertValueAt(1, l -> Objects.equals(l.get(2).name(), "Product-3-1"));
     }
 
     @Test
@@ -1013,18 +1013,18 @@ public abstract class AbstractRepositoryTest {
                 .assertOf(countAtLeast(1))
                 .assertValue(l -> l.size() == 3)
                 .assertValue(l -> Objects.isNull(l.get(0).type()))
-                .assertValue(l -> Objects.equals(l.get(0).name(), "Product 2"))
-                .assertValue(l -> Objects.equals(l.get(2).name(), "Product 4"));
+                .assertValue(l -> Objects.equals(l.get(0).name(), "Product-2"))
+                .assertValue(l -> Objects.equals(l.get(2).name(), "Product-4"));
     }
 
     @Test
     public void testObserveAsListWithPredicate() {
         EntitySet<UniqueId, Product> products = repository.entities(Product.metaClass);
         Product product2 = Product.builder()
-                .name("Product 2")
+                .name("Product-2")
                 .inventory(Inventory.builder()
                         .id(UniqueId.inventoryId(1))
-                        .name("Inventory 1")
+                        .name("Inventory-1")
                         .build())
                 .key(UniqueId.productId(2))
                 .price(100)
@@ -1047,9 +1047,9 @@ public abstract class AbstractRepositoryTest {
 
 
         Product product1 = Product.builder()
-                .name("Product 1")
+                .name("Product-1")
                 .inventory(Inventory.builder()
-                        .name("Inventory 1")
+                        .name("Inventory-1")
                         .id(UniqueId.inventoryId(1))
                         .build())
                 .key(UniqueId.productId(1))
@@ -1062,11 +1062,11 @@ public abstract class AbstractRepositoryTest {
         productTestObserver
                 .assertOf(countAtLeast(2))
                 .assertValueAt(1, l -> l.size() == 2)
-                .assertValueAt(1, l -> Objects.equals(l.get(0).name(), "Product 2"))
-                .assertValueAt(1, l -> Objects.equals(l.get(1).name(), "Product 1"))
-                .assertValueAt(1, l -> Optional.ofNullable(l.get(0).inventory()).map(Inventory::name).map("Inventory 1"::equals).orElse(false));
+                .assertValueAt(1, l -> Objects.equals(l.get(0).name(), "Product-2"))
+                .assertValueAt(1, l -> Objects.equals(l.get(1).name(), "Product-1"))
+                .assertValueAt(1, l -> Optional.ofNullable(l.get(0).inventory()).map(Inventory::name).map("Inventory-1"::equals).orElse(false));
 
-        products.update(product1.toBuilder().name("Product 1-1").build()).ignoreElement().blockingAwait();
+        products.update(product1.toBuilder().name("Product-1-1").build()).ignoreElement().blockingAwait();
 
         productTestObserver
                 .assertOf(countAtLeast(3))
@@ -1088,8 +1088,8 @@ public abstract class AbstractRepositoryTest {
                 .assertComplete()
                 .assertValue(l -> l.size() == 3)
                 .assertValue(l -> Objects.isNull(l.get(0).type()))
-                .assertValue(l -> Objects.equals(l.get(0).name(), "Product 2"))
-                .assertValue(l -> Objects.equals(l.get(2).name(), "Product 4"));
+                .assertValue(l -> Objects.equals(l.get(0).name(), "Product-2"))
+                .assertValue(l -> Objects.equals(l.get(2).name(), "Product-4"));
     }
 
     @Test
@@ -1133,7 +1133,7 @@ public abstract class AbstractRepositoryTest {
                         .map(p -> p.toBuilder().name(p.name() + " - new name").build()))
                 .test()
                 .await()
-                .assertValue(p -> "Product 1 - new name".equals(p.get().name()))
+                .assertValue(p -> "Product-1 - new name".equals(p.get().name()))
                 .assertNoErrors();
 
         productNameChanges.assertOf(countExactly(11));
@@ -1142,8 +1142,8 @@ public abstract class AbstractRepositoryTest {
 
         productNameChanges
                 .assertValueAt(10, NotificationPrototype::isModify)
-                .assertValueAt(10, n -> "Product 1".equals(requireNonNull(n.oldValue()).name()))
-                .assertValueAt(10, n -> "Product 1 - new name".equals(requireNonNull(n.newValue()).name()));
+                .assertValueAt(10, n -> "Product-1".equals(requireNonNull(n.oldValue()).name()))
+                .assertValueAt(10, n -> "Product-1 - new name".equals(requireNonNull(n.newValue()).name()));
 
         repository.entities(Product.metaClass)
                 .update(UniqueId.productId(1), productMaybe -> productMaybe
@@ -1258,8 +1258,8 @@ public abstract class AbstractRepositoryTest {
 
         productObserver.awaitCount(1)
                 .assertValueAt(0, NotificationPrototype::isModify)
-                .assertValueAt(0, p -> p.oldValue().name().equals("Product 1"))
-                .assertValueAt(0, p -> p.newValue().name().equals("Product 1 - Updated"));
+                .assertValueAt(0, p -> p.oldValue().name().equals("Product-1"))
+                .assertValueAt(0, p -> p.newValue().name().equals("Product-1 - Updated"));
 
         repository.entities(Product.metaClass)
                 .update(product1.toBuilder().productionDate(new Date(product1.productionDate().getTime() + 1)).build())
@@ -1347,7 +1347,7 @@ public abstract class AbstractRepositoryTest {
         repository.entities(Product.metaClass).update(Products
                 .createOne()
                 .toBuilder()
-                .name("Product 1 with special symbols, for example: colon, coma & ampersand")
+                .name("Product-1 with special symbols, for example: colon, coma & ampersand")
                 .build())
                 .ignoreElement()
                 .blockingAwait();
@@ -1380,14 +1380,14 @@ public abstract class AbstractRepositoryTest {
                 .assertComplete();
     }
 
-    @Test
-    @UseLogLevel(LogLevel.TRACE)
+    @Test @Ignore
     public void testObserveCount() {
         TestObserver<Long> testObserver = repository.entities(Product.metaClass)
                 .query()
                 .where(Product.$.key.id.eq(2))
                 .observeCount()
-                .test();
+                .test()
+                .assertSubscribed();
 
         testObserver.awaitCount(1)
                 .assertValueCount(1)
@@ -1395,8 +1395,8 @@ public abstract class AbstractRepositoryTest {
 
         repository.entities(Product.metaClass).update(Products.createOne(2)).ignoreElement().blockingAwait();
 
-        testObserver.awaitCount(2)
-                .assertValueCount(2)
+        testObserver
+                .assertOf(TestUtils.countAtLeast(2, Duration.ofSeconds(10)))
                 .assertValueAt(1, 1L);
     }
 
@@ -1525,7 +1525,7 @@ public abstract class AbstractRepositoryTest {
     @UseLogLevel(LogLevel.TRACE)
     public void testSearchTextLiveQuery() {
         TestObserver<Notification<Product>> testObserver = products.query()
-                .where(Product.$.searchText("Product 0"))
+                .where(Product.$.searchText("Product-0"))
                 .liveSelect()
                 .observe()
                 .test();
@@ -1547,7 +1547,7 @@ public abstract class AbstractRepositoryTest {
         products.update(Products.createMany(100000)).blockingAwait();
         Stopwatch stopwatch = Stopwatch.createStarted();
         products.query()
-                .where(Product.$.searchText("ory 1"))
+                .where(Product.$.searchText("ory-1"))
                 .retrieve()
                 .ignoreElements()
                 .blockingAwait();
@@ -1569,7 +1569,7 @@ public abstract class AbstractRepositoryTest {
         repository.entities(Inventory.metaClass)
                 .update(Inventory.builder()
                         .id(UniqueId.inventoryId(1))
-                        .name("Inventory 1 - updated")
+                        .name("Inventory-1 - updated")
                         .build())
                 .ignoreElement()
                 .blockingAwait();
@@ -1580,8 +1580,8 @@ public abstract class AbstractRepositoryTest {
                 .assertValueAt(100, n -> n.oldValue().inventory() != null && n.newValue().inventory() != null)
                 .assertValueAt(100, n -> !Objects.equals(n.oldValue().inventory(), n.newValue().inventory()))
                 .assertValueAt(100, n -> !Objects.equals(n.oldValue().inventory().name(), n.newValue().inventory().name()))
-                .assertValueAt(100, n -> Objects.equals("Inventory 1", n.oldValue().inventory().name()))
-                .assertValueAt(100, n -> Objects.equals("Inventory 1 - updated", n.newValue().inventory().name()));
+                .assertValueAt(100, n -> Objects.equals("Inventory-1", n.oldValue().inventory().name()))
+                .assertValueAt(100, n -> Objects.equals("Inventory-1 - updated", n.newValue().inventory().name()));
     }
 
     @SuppressWarnings("ConstantConditions")
@@ -1601,7 +1601,7 @@ public abstract class AbstractRepositoryTest {
         repository.entities(Inventory.metaClass)
                 .update(Inventory.builder()
                         .id(UniqueId.inventoryId(0))
-                        .name("Inventory 0 - updated")
+                        .name("Inventory-0 - updated")
                         .build())
                 .ignoreElement()
                 .blockingAwait();
@@ -1612,8 +1612,8 @@ public abstract class AbstractRepositoryTest {
                 .assertValueAt(count, n -> n.oldValue().inventory() != null && n.newValue().inventory() != null)
                 .assertValueAt(count, n -> !Objects.equals(n.oldValue().inventory(), n.newValue().inventory()))
                 .assertValueAt(count, n -> !Objects.equals(n.oldValue().inventory().name(), n.newValue().inventory().name()))
-                .assertValueAt(count, n -> Objects.equals("Inventory 0", n.oldValue().inventory().name()))
-                .assertValueAt(count, n -> Objects.equals("Inventory 0 - updated", n.newValue().inventory().name()));
+                .assertValueAt(count, n -> Objects.equals("Inventory-0", n.oldValue().inventory().name()))
+                .assertValueAt(count, n -> Objects.equals("Inventory-0 - updated", n.newValue().inventory().name()));
     }
 
     @SuppressWarnings("ConstantConditions")
@@ -1706,7 +1706,7 @@ public abstract class AbstractRepositoryTest {
         TestObserver<Notification<Product>> testObserver = products
                 .query()
                 .where(Product.$.inventory.name.startsWith("Inventory")
-                        .and(Product.$.inventory.manufacturer.name.eq("Manufacturer 0")))
+                        .and(Product.$.inventory.manufacturer.name.eq("Manufacturer-0")))
                 .queryAndObserve(Product.$.name)
                 .doOnNext(System.out::println)
                 .test();
