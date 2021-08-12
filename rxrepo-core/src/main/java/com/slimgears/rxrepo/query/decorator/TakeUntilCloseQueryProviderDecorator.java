@@ -102,7 +102,10 @@ public class TakeUntilCloseQueryProviderDecorator implements QueryProvider.Decor
         }
 
         private <T> ObservableTransformer<T, T> applyTakeUntilClose() {
-            return src -> src.takeUntil(closeSubject.andThen(Observable.just(onCloseToken)));
+            return src -> src.takeUntil(closeSubject
+                    .andThen(Observable.just(onCloseToken))
+                    .doOnNext(o -> log.info("Closing repository")))
+                    .doFinally(() -> log.info("Observable stopped"));
         }
     }
 }

@@ -112,7 +112,7 @@ public abstract class AbstractOrientDbQueryProviderTest extends AbstractReposito
                 .assertNoErrors();
     }
 
-    @Test @Ignore
+    @Test
     @UseLogLevel(LogLevel.TRACE)
     public void testLiveQueriesFromMultipleThreads() throws InterruptedException {
         Observable.range(0, 10)

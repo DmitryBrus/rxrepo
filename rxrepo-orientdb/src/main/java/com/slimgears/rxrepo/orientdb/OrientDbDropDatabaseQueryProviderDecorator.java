@@ -1,12 +1,10 @@
 package com.slimgears.rxrepo.orientdb;
 
 import com.orientechnologies.orient.core.db.OrientDB;
-import com.slimgears.rxrepo.query.Notification;
 import com.slimgears.rxrepo.query.decorator.AbstractQueryProviderDecorator;
-import com.slimgears.rxrepo.query.provider.QueryInfo;
 import com.slimgears.rxrepo.query.provider.QueryProvider;
 import io.reactivex.Completable;
-import io.reactivex.Observable;
+import io.reactivex.schedulers.Schedulers;
 
 import java.util.function.Supplier;
 
@@ -33,6 +31,7 @@ class OrientDbDropDatabaseQueryProviderDecorator extends AbstractQueryProviderDe
                     if (client.exists(dbName)) {
                         client.drop(dbName);
                     }
-                });
+                })
+                .subscribeOn(Schedulers.io());
     }
 }

@@ -60,8 +60,7 @@ public abstract class AbstractRepositoryTest {
     @After
     public void tearDown() {
         System.out.println("Test finished: " + testNameRule.getMethodName());
-        this.repository.clear().doOnComplete(this.repository::close).blockingAwait();
-        this.repository.close();
+        this.repository.clear().doOnComplete(this.repository::close).blockingAwait(10000, TimeUnit.MILLISECONDS);
     }
 
     protected abstract Repository createRepository(SchedulingProvider schedulingProvider);
@@ -1359,7 +1358,8 @@ public abstract class AbstractRepositoryTest {
 
         repository.entities(Product.metaClass).update(Products.createOne(2)).ignoreElement().blockingAwait();
 
-        testObserver.awaitCount(2)
+        testObserver
+                .awaitCount(2, BaseTestConsumer.TestWaitStrategy.SLEEP_10MS, 10000)
                 .assertValueCount(2)
                 .assertValueAt(1, 1L);
     }
