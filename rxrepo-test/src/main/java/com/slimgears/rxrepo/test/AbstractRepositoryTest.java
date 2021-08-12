@@ -17,6 +17,7 @@ import com.slimgears.util.test.logging.UseLogLevel;
 import io.reactivex.Maybe;
 import io.reactivex.Observable;
 import io.reactivex.ObservableTransformer;
+import io.reactivex.observers.BaseTestConsumer;
 import io.reactivex.observers.TestObserver;
 import io.reactivex.subjects.CompletableSubject;
 import org.junit.*;
@@ -1359,8 +1360,7 @@ public abstract class AbstractRepositoryTest {
         repository.entities(Product.metaClass).update(Products.createOne(2)).ignoreElement().blockingAwait();
 
         testObserver
-                .awaitCount(2, BaseTestConsumer.TestWaitStrategy.SLEEP_10MS, 10000)
-                .assertValueCount(2)
+                .assertOf(TestUtils.countAtLeast(2, Duration.ofSeconds(10)))
                 .assertValueAt(1, 1L);
     }
 
