@@ -24,4 +24,5 @@ dependencies {
     testImplementation libs.slimTestUtils, libs.slimTestUtilsLogback
     testImplementation project(':rxrepo-test')
     testImplementation libs.commonsIo
+    testImplementation libs.junit
 }

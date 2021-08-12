@@ -8,8 +8,8 @@ import com.slimgears.rxrepo.expressions.ObjectExpression;
 import com.slimgears.rxrepo.query.*;
 import com.slimgears.rxrepo.query.provider.QueryInfo;
 import com.slimgears.util.generic.MoreStrings;
+import com.slimgears.util.junit.AnnotationRulesJUnit;
 import com.slimgears.util.stream.Streams;
-import com.slimgears.util.test.AnnotationRulesJUnit;
 import com.slimgears.util.test.logging.LogLevel;
 import com.slimgears.util.test.logging.UseLogLevel;
 import io.reactivex.Maybe;
@@ -1319,7 +1319,7 @@ public abstract class AbstractRepositoryTest {
 
         int count = Optional.ofNullable(System.getProperty("testLargeUpdate.count"))
                 .map(Integer::valueOf)
-                .orElse(100000);
+                .orElse(20000);
         repository.entities(Product.metaClass).update(Products.createMany(count))
                 .test()
                 .await()

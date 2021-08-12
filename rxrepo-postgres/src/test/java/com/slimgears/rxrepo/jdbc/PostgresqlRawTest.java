@@ -6,7 +6,7 @@ import com.slimgears.rxrepo.query.Repository;
 import com.slimgears.rxrepo.sql.*;
 import com.slimgears.rxrepo.sql.jdbc.JdbcHelper;
 import com.slimgears.rxrepo.test.*;
-import com.slimgears.util.test.AnnotationRulesJUnit;
+import com.slimgears.util.junit.AnnotationRulesJUnit;
 import com.slimgears.util.test.logging.LogLevel;
 import com.slimgears.util.test.logging.UseLogLevel;
 import org.junit.*;

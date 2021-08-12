@@ -21,6 +21,8 @@ dependencies {
     testImplementation libs.slimTestUtils, libs.slimTestUtilsLogback
     testImplementation sourceSets.embed.output
     testImplementation libs.flapDoodle
+    testImplementation libs.junit, libs.mockito
+
     embedImplementation libs.flapDoodle
     embedImplementation libs.rxJava
     embedImplementation libs.slf4j

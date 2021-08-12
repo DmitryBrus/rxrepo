@@ -8,5 +8,6 @@ dependencies {
     implementation libs.slimAutoValueUtils
     implementation libs.slimAutoValueUtilsAnnotations
     testImplementation project(':rxrepo-test')
-    testImplementation libs.slimTestUtils, libs.slimTestUtilsLogback
+    testImplementation libs.slimTestUtils, libs.slimTestUtilsJunit, libs.slimTestUtilsLogback
+    testImplementation libs.junit, libs.mockito
 }
