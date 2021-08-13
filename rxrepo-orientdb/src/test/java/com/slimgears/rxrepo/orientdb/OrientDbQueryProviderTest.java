@@ -7,7 +7,7 @@ public class OrientDbQueryProviderTest extends AbstractOrientDbQueryProviderTest
 
     @Override
     protected Repository createRepository() {
-        return createRepository(OrientDbRepository.Type.Persistent);
+        return createRepository(OrientDbRepository.Type.Memory);
     }
 
     protected Repository createRepository(OrientDbRepository.Type dbType) {

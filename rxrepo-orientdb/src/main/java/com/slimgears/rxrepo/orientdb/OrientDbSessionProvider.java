@@ -62,10 +62,7 @@ class OrientDbSessionProvider implements AutoCloseable {
             activeSessionsGauge.record(newCount);
         });
 
-        this.executorService = new ThreadPoolExecutor(
-                0, maxConnections,
-                20L, TimeUnit.SECONDS,
-                new LinkedBlockingQueue<>());
+        this.executorService = Executors.newWorkStealingPool(maxConnections);
         Scheduler scheduler = Schedulers.from(executorService);
         this.session = currentSession.subscribeOn(scheduler);
     }

@@ -49,10 +49,6 @@ public abstract class AbstractOrientDbQueryProviderTest extends AbstractReposito
 
     protected Repository createRepository(String dbUrl, OrientDbRepository.Type dbType) {
         String name = MoreStrings.format(dbName, dbType, testNameRule.getMethodName().replaceAll("\\[\\d+]", ""));
-//        ExecutorService updatePool = Executors.newWorkStealingPool(5);
-//        Scheduler updateScheduler = Schedulers.from(updatePool);
-//        ExecutorService queryPool = Executors.newWorkStealingPool(5);
-//        Scheduler queryScheduler = Schedulers.from(queryPool);
         return OrientDbRepository
                 .builder()
                 .url(dbUrl)
@@ -61,22 +57,10 @@ public abstract class AbstractOrientDbQueryProviderTest extends AbstractReposito
                 .type(dbType)
                 .name(name)
                 .decorate(
-                        //SubscribeOnSchedulingQueryProviderDecorator.create(updateScheduler, queryScheduler, Schedulers.from(Runnable::run)),
                         OperationTimeoutQueryProviderDecorator.create(Duration.ofSeconds(20), Duration.ofSeconds(360)))
                 .enableBatchSupport(100)
-                .maxConnections(20)
+                .maxConnections(10)
                 .build();
-//                .onClose(repo -> {
-//                    updatePool.shutdown();
-//                    queryPool.shutdown();
-//                    try {
-//                        Assert.assertTrue(updatePool.awaitTermination(5000, TimeUnit.MILLISECONDS));
-//                        Assert.assertTrue(queryPool.awaitTermination(5000, TimeUnit.MILLISECONDS));
-//                    } catch (InterruptedException e) {
-//                        e.printStackTrace();
-//                    }
-//                });
-
     }
 
     @Test
