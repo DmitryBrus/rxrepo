@@ -1,8 +1,12 @@
 package com.slimgears.rxrepo.mongodb;
 
+import com.slimgears.rxrepo.query.DefaultRepository;
 import com.slimgears.rxrepo.query.Repository;
+import com.slimgears.rxrepo.query.RepositoryConfig;
+import com.slimgears.rxrepo.query.RepositoryConfigModel;
 import com.slimgears.rxrepo.query.decorator.LimitConcurrentOperationsQueryProviderDecorator;
 import com.slimgears.rxrepo.query.decorator.LiveQueryProviderDecorator;
+import com.slimgears.rxrepo.query.decorator.RetryOnConcurrentConflictQueryProviderDecorator;
 import com.slimgears.rxrepo.query.decorator.UpdateReferencesFirstQueryProviderDecorator;
 import com.slimgears.rxrepo.query.provider.QueryProvider;
 import com.slimgears.util.generic.MoreStrings;
@@ -62,10 +66,15 @@ public class MongoRepository {
         }
 
         public Repository build() {
+            return build(DefaultRepository.defaultConfig);
+        }
+
+        public Repository build(RepositoryConfigModel config) {
             String connectionString = createConnectionString();
             QueryProvider queryProvider = new MongoQueryProvider(connectionString, dbName, maxConcurrentRequests * 2);
             return Repository.fromProvider(queryProvider,
-                    LiveQueryProviderDecorator.create(Duration.ofMillis(2000)),
+                    RetryOnConcurrentConflictQueryProviderDecorator.create(Duration.ofMillis(config.retryInitialDurationMillis()), config.retryCount()),
+                    LiveQueryProviderDecorator.create(Duration.ofMillis(config.aggregationDebounceTimeMillis())),
                     decorator,
                     UpdateReferencesFirstQueryProviderDecorator.create(),
                     LimitConcurrentOperationsQueryProviderDecorator.create(maxConcurrentRequests));

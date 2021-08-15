@@ -65,8 +65,10 @@ public abstract class AbstractRepositoryTest {
     @After
     public void tearDown() {
         System.out.println("Test finished: " + testNameRule.getMethodName());
-        if (System.getProperty("tearDown.noClear") != null) {
-            this.repository.clear().doOnComplete(this.repository::close).blockingAwait(10000, TimeUnit.MILLISECONDS);
+        if (System.getProperty("test.noClear") == null) {
+            this.repository.clear().doOnComplete(this.repository::close)
+                    .onErrorComplete()
+                    .blockingAwait(10000, TimeUnit.MILLISECONDS);
         } else {
             this.repository.close();
         }
@@ -1317,7 +1319,7 @@ public abstract class AbstractRepositoryTest {
     @UseLogLevel(LogLevel.INFO)
     public void testLargeUpdate() throws InterruptedException {
 
-        int count = Optional.ofNullable(System.getProperty("testLargeUpdate.count"))
+        int count = Optional.ofNullable(System.getProperty("test.testLargeUpdate.count"))
                 .map(Integer::valueOf)
                 .orElse(20000);
         repository.entities(Product.metaClass).update(Products.createMany(count))

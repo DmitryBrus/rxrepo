@@ -6,6 +6,7 @@ import com.slimgears.rxrepo.expressions.Expression;
 import com.slimgears.rxrepo.expressions.ExpressionVisitor;
 import com.slimgears.rxrepo.expressions.ObjectExpression;
 import com.slimgears.rxrepo.mongodb.adapter.MongoFieldMapper;
+import com.slimgears.rxrepo.util.Expressions;
 import com.slimgears.util.autovalue.annotations.PropertyMeta;
 import com.slimgears.util.stream.Optionals;
 import org.bson.Document;
@@ -45,6 +46,8 @@ class MongoExpressionAdapter extends ExpressionVisitor<Void, Object> {
             .put(Expression.Type.Max, args -> expr("$max", "$" + MongoPipeline.valueField))
             .put(Expression.Type.Sum, args -> expr("$sum", "$" + MongoPipeline.valueField))
             .put(Expression.Type.Average, args -> expr("$avg", "$" + MongoPipeline.valueField))
+            //.put(Expression.Type.SequenceNumber, args -> expr(MongoFieldMapper.instance.versionField()))
+            .put(Expression.Type.SequenceNumber, args -> expr("$toLong", 0))
             .build();
 
     private final static ImmutableMap<Expression.OperationType, Reducer> operationTypeReducers = ImmutableMap

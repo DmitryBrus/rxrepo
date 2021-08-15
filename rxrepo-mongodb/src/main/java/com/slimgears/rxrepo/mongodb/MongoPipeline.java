@@ -33,6 +33,7 @@ import java.util.stream.Stream;
 public class MongoPipeline {
     public final static String aggregationField = "__aggregation";
     public final static String valueField = "__value";
+    public final static String versionField = "__version";
     private final static MetaClassFieldMapper fieldMapper = MongoFieldMapper.instance;
     private final static Logger log = LoggerFactory.getLogger(MongoPipeline.class);
 

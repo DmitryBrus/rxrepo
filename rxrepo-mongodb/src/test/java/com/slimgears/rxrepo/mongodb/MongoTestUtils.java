@@ -21,7 +21,7 @@ public class MongoTestUtils {
     private static AutoCloseable startMongo() {
         return MongoService.builder()
                 .port(port)
-                .version("4.0.12")
+                .version("4.0.26")
                 .enableReplica()
                 .build()
                 .start();
