@@ -8,6 +8,8 @@ import com.mongodb.client.model.changestream.FullDocument;
 import com.mongodb.reactivestreams.client.*;
 import com.slimgears.rxrepo.mongodb.adapter.StandardCodecs;
 import com.slimgears.rxrepo.test.*;
+import com.slimgears.util.junit.DockerRules;
+import com.slimgears.util.test.containers.DockerUtils;
 import io.reactivex.Completable;
 import io.reactivex.Observable;
 import io.reactivex.Single;
@@ -15,6 +17,7 @@ import io.reactivex.observers.TestObserver;
 import io.reactivex.subjects.CompletableSubject;
 import org.bson.Document;
 import org.junit.*;
+import org.junit.rules.TestRule;
 import org.reactivestreams.Publisher;
 
 import java.util.Arrays;
@@ -25,22 +28,12 @@ import static com.slimgears.rxrepo.test.Products.createOne;
 import static com.slimgears.rxrepo.test.TestUtils.countExactly;
 
 public class MongoDbClientTest {
-    private static AutoCloseable mongoProcess;
     private MongoClient mongoClient;
     private MongoDatabase mongoDatabase;
     private MongoCollection<Product> collection;
 
-    @BeforeClass
-    public static void setUpClass() {
-        mongoProcess = MongoTestUtils.startMongo();
-    }
-
-    @AfterClass
-    public static void tearDownClass() throws Exception {
-        if (mongoProcess != null) {
-            mongoProcess.close();
-        }
-    }
+    @ClassRule
+    public static TestRule mongoDbRule = MongoTestUtils.rule();
 
     @Before
     public void setUp() {

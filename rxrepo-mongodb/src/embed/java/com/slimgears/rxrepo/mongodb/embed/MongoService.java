@@ -10,11 +10,11 @@ import de.flapdoodle.embed.mongo.MongodStarter;
 import de.flapdoodle.embed.mongo.config.*;
 import de.flapdoodle.embed.mongo.distribution.Feature;
 import de.flapdoodle.embed.mongo.distribution.Versions;
-import de.flapdoodle.embed.process.config.IRuntimeConfig;
-import de.flapdoodle.embed.process.config.store.IDownloadConfig;
-import de.flapdoodle.embed.process.distribution.GenericVersion;
+import de.flapdoodle.embed.process.config.RuntimeConfig;
+import de.flapdoodle.embed.process.config.store.DownloadConfig;
+import de.flapdoodle.embed.process.distribution.Version;
 import de.flapdoodle.embed.process.io.directories.FixedPath;
-import de.flapdoodle.embed.process.io.progress.IProgressListener;
+import de.flapdoodle.embed.process.io.progress.ProgressListener;
 import io.reactivex.Completable;
 import io.reactivex.Observable;
 import org.bson.Document;
@@ -22,7 +22,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.nio.file.Paths;
 import java.util.Collections;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
@@ -47,20 +46,13 @@ public class MongoService implements AutoCloseable {
         workingDir = Optional.ofNullable(workingDir).filter(wd -> !wd.isEmpty()).orElse(".") + "/.mongo";
         this.enableReplica = enableReplica;
 
-        IDownloadConfig downloadConfig = new DownloadConfigBuilder()
-                .defaults()
-                .defaultsForCommand(Command.MongoD)
+        DownloadConfig downloadConfig = Defaults.downloadConfigFor(Command.MongoD)
                 .artifactStorePath(new FixedPath(workingDir + "/dist"))
                 .progressListener(new LoggingProgressListener(10))
                 .build();
 
-        IRuntimeConfig config = new RuntimeConfigBuilder()
-                .defaults(Command.MongoD)
-                .artifactStore(new ExtractedArtifactStoreBuilder()
-                        .defaults(Command.MongoD)
-                        .download(downloadConfig)
-                        .tempDir(new FixedPath(Paths.get(workingDir + "/temp").toAbsolutePath().toString()))
-                        .build())
+        RuntimeConfig config = Defaults.runtimeConfigFor(Command.MongoD)
+                .artifactStore(Defaults.extractedArtifactStoreFor(Command.MongoD).withDownloadConfig(downloadConfig))
                 .build();
 
         this.starter = MongodStarter.getInstance(config);
@@ -68,10 +60,10 @@ public class MongoService implements AutoCloseable {
 
     public MongoService start() {
         try {
-            MongodConfigBuilder mongodConfigBuilder = new MongodConfigBuilder()
-                    .version(Versions.withFeatures(new GenericVersion(version), Feature.SYNC_DELAY, Feature.STORAGE_ENGINE, Feature.ONLY_64BIT, Feature.NO_CHUNKSIZE_ARG, Feature.MONGOS_CONFIGDB_SET_STYLE, Feature.NO_HTTP_INTERFACE_ARG, Feature.ONLY_WITH_SSL, Feature.ONLY_WINDOWS_2008_SERVER, Feature.NO_SOLARIS_SUPPORT, Feature.NO_BIND_IP_TO_LOCALHOST))
+            ImmutableMongodConfig.Builder mongodConfigBuilder = MongodConfig.builder()
+                    .version(Versions.withFeatures(Version.of(version), Feature.SYNC_DELAY, Feature.STORAGE_ENGINE, Feature.ONLY_64BIT, Feature.NO_CHUNKSIZE_ARG, Feature.MONGOS_CONFIGDB_SET_STYLE, Feature.NO_HTTP_INTERFACE_ARG, Feature.ONLY_WITH_SSL, Feature.ONLY_WINDOWS_2008_SERVER, Feature.NO_SOLARIS_SUPPORT, Feature.NO_BIND_IP_TO_LOCALHOST))
                     .net(new Net(host, port, false))
-                    .cmdOptions(new MongoCmdOptionsBuilder().useNoJournal(false).build())
+                    .cmdOptions(MongoCmdOptions.builder().useNoJournal(false).build())
                     .timeout(new Timeout(10000))
                     .stopTimeoutInMillis(10000);
 
@@ -79,7 +71,7 @@ public class MongoService implements AutoCloseable {
                 mongodConfigBuilder.replication(new Storage(null, "rs0", 5000));
             }
 
-            IMongodConfig mongodConfig = mongodConfigBuilder.build();
+            MongodConfig mongodConfig = mongodConfigBuilder.build();
 
             MongodExecutable executable = starter.prepare(mongodConfig);
             MongodProcess process = executable.start();
@@ -131,7 +123,7 @@ public class MongoService implements AutoCloseable {
         stop();
     }
 
-    private static class LoggingProgressListener implements IProgressListener {
+    private static class LoggingProgressListener implements ProgressListener {
         private final AtomicInteger lastPercent = new AtomicInteger();
         private final int progressGranularity;
 
@@ -166,7 +158,7 @@ public class MongoService implements AutoCloseable {
 
     public static class Builder {
         private int port = 27017;
-        private String version = "4.0.11";
+        private String version = "4.0.26";
         private String workingDir = "";
         private boolean enableReplica = false;
 

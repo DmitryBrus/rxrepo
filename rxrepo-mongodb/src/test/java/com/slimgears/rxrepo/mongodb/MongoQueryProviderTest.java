@@ -13,21 +13,15 @@ import org.junit.rules.TestRule;
 @UseLogLevels(
         @UseLogLevel(logger = "org.mongodb.driver", value = LogLevel.INFO)
 )
-@Ignore
 public class MongoQueryProviderTest extends AbstractRepositoryTest {
-    private final static String mongoUser = "root";
-    private final static String mongoPassword = "example";
-
     @ClassRule
-    public static TestRule containerRule = DockerRules.compose();
+    public static TestRule containerRule = MongoTestUtils.rule();
 
     @Override
     protected Repository createRepository() {
         return MongoRepository.builder()
                 .port(MongoTestUtils.port)
                 .maxConcurrentRequests(100)
-                .user(mongoUser)
-                .password(mongoPassword)
                 .decorate(SubscribeOnSchedulingQueryProviderDecorator.createDefault())
                 .build();
     }
