@@ -3,9 +3,9 @@ package com.slimgears.rxrepo.orientdb;
 import com.orientechnologies.orient.core.db.OrientDB;
 import com.orientechnologies.orient.core.db.OrientDBConfig;
 import com.slimgears.rxrepo.query.Repository;
-import com.slimgears.rxrepo.test.DockerComposeRule;
 import com.slimgears.util.junit.DockerRules;
 import com.slimgears.util.test.containers.ContainerConfig;
+import com.slimgears.util.test.containers.WaitPolicy;
 import org.junit.Assume;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
@@ -18,7 +18,7 @@ public class RemoteOrientDbQueryProviderTest extends OrientDbQueryProviderTest {
 
     @ClassRule
     public static TestRule dbContainerRule = DockerRules.container(ContainerConfig.builder()
-                    .delaySeconds(8)
+                    .waitPolicy(WaitPolicy.busyWaitSeconds(8, RemoteOrientDbQueryProviderTest::isDbAvailable))
                     .image("orientdb:3.0.38")
                     .containerName("orientdb")
                     .environmentPut("ORIENTDB_ROOT_PASSWORD", "root")

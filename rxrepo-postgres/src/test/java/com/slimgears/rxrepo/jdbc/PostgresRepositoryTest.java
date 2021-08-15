@@ -8,14 +8,17 @@ import com.slimgears.rxrepo.sql.SqlStatement;
 import com.slimgears.rxrepo.sql.SqlStatementExecutor;
 import com.slimgears.rxrepo.test.AbstractRepositoryTest;
 import com.slimgears.rxrepo.util.PropertyResolver;
+import com.slimgears.util.junit.DockerRules;
 import com.slimgears.util.test.logging.LogLevel;
 import com.slimgears.util.test.logging.UseLogLevel;
 import io.reactivex.Completable;
 import io.reactivex.Observable;
 import io.reactivex.Single;
 import org.junit.BeforeClass;
+import org.junit.ClassRule;
 import org.junit.Ignore;
 import org.junit.Test;
+import org.junit.rules.TestRule;
 
 import java.time.Duration;
 import java.util.concurrent.TimeUnit;
@@ -26,10 +29,8 @@ public class PostgresRepositoryTest  extends AbstractRepositoryTest {
     private AtomicLong totalMillis;
     private AtomicLong totalCount;
 
-    @BeforeClass
-    public static void setUpClass() {
-        PostgresTestUtils.start();
-    }
+    @ClassRule
+    public static TestRule postgresRule = PostgresTestUtils.rule();
 
     static class StopWatchDecorator extends AbstractSqlStatementExecutorDecorator {
         private final AtomicLong totalMillis;

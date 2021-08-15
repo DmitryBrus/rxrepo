@@ -7,6 +7,7 @@ import com.slimgears.rxrepo.sql.*;
 import com.slimgears.rxrepo.sql.jdbc.JdbcHelper;
 import com.slimgears.rxrepo.test.*;
 import com.slimgears.util.junit.AnnotationRulesJUnit;
+import com.slimgears.util.junit.DockerRules;
 import com.slimgears.util.test.logging.LogLevel;
 import com.slimgears.util.test.logging.UseLogLevel;
 import org.junit.*;
@@ -22,7 +23,7 @@ import java.util.stream.Stream;
 
 @RunWith(AnnotationRulesJUnit.class)
 public class PostgresqlRawTest {
-    @ClassRule public static TestRule dbContainerRule = new DockerComposeRule();
+    @ClassRule public static TestRule dbContainerRule = PostgresTestUtils.rule();
     private SqlStatementProvider statementProvider;
     private Callable<Connection> connection;
 

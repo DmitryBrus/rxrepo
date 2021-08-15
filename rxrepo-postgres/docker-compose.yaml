@@ -1,8 +1,7 @@
 version: "3.8"
 services:
   postgres:
-    image: postgres:13.2
-    mem_limit: 8g
+    image: postgres:13.4
     environment:
       POSTGRES_DB: test_db
       POSTGRES_USER: root
