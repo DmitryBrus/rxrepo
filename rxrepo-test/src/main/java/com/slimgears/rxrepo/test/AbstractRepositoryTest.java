@@ -1514,13 +1514,13 @@ public abstract class AbstractRepositoryTest {
         repository.close();
 
         log.info("Waiting for observer1 complete");
-        productTestObserver1.awaitDone(5000, TimeUnit.MILLISECONDS).assertComplete().assertNoErrors();
+        productTestObserver1.awaitDone(10000, TimeUnit.MILLISECONDS).assertComplete().assertNoErrors();
 
         log.info("Waiting for observer2 complete");
-        productTestObserver2.awaitDone(5000, TimeUnit.MILLISECONDS).assertComplete().assertNoErrors();
+        productTestObserver2.awaitDone(10000, TimeUnit.MILLISECONDS).assertComplete().assertNoErrors();
 
         log.info("Waiting for observer3 complete");
-        productTestObserver3.awaitDone(5000, TimeUnit.MILLISECONDS).assertComplete().assertNoErrors();
+        productTestObserver3.awaitDone(10000, TimeUnit.MILLISECONDS).assertComplete().assertNoErrors();
     }
 
     @Test

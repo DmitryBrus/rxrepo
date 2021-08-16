@@ -33,8 +33,9 @@ public class TakeUntilCloseQueryProviderDecorator implements QueryProvider.Decor
     static class Decorator extends AbstractQueryProviderDecorator {
         private final CompletableSubject closeSubject = CompletableSubject.create();
         private final Observable<Object> closeObservable = closeSubject
-                .observeOn(Schedulers.io())
-                .andThen(Observable.just(onCloseToken));
+                .andThen(Observable.just(onCloseToken))
+                .doOnNext(t -> log.info("Repository is being closed"))
+                .share();
 
         private Decorator(QueryProvider underlyingProvider) {
             super(underlyingProvider);
@@ -72,7 +73,9 @@ public class TakeUntilCloseQueryProviderDecorator implements QueryProvider.Decor
         }
 
         private <T> ObservableTransformer<T, T> applyTakeUntilClose() {
-            return src -> src.takeUntil(closeObservable);
+            return src -> src
+                    .takeUntil(closeObservable.doOnNext(t -> log.info("Stopping observable due to repository close")))
+                    .doFinally(() -> log.info("Observation was completed"));
         }
     }
 }
