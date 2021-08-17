@@ -17,20 +17,25 @@ import java.util.concurrent.ConcurrentHashMap;
 public class PropertyMetas {
     private final static Map<PropertyMeta<?, ?>, Boolean> referencePropertiesCache = new ConcurrentHashMap<>();
     private final static Map<PropertyMeta<?, ?>, Boolean> referenceCollectionPropertiesCache = new ConcurrentHashMap<>();
+    private final static Map<PropertyMeta<?, ?>, Boolean> referenceMapPropertiesCache = new ConcurrentHashMap<>();
     private final static Map<PropertyMeta<?, ?>, Boolean> embeddedPropertiesCache = new ConcurrentHashMap<>();
     private final static Map<PropertyMeta<?, ?>, Boolean> mandatoryPropertiesCache = new ConcurrentHashMap<>();
     private final static Map<PropertyMeta<?, ?>, Boolean> keyPropertiesCache = new ConcurrentHashMap<>();
 
     public static boolean isReference(PropertyMeta<?, ?> propertyMeta) {
-        return referencePropertiesCache.computeIfAbsent(propertyMeta, pm -> isReference(pm.type()) && !pm.hasAnnotation(Embedded.class));
+        return referencePropertiesCache.computeIfAbsent(propertyMeta, pm -> !pm.hasAnnotation(Embedded.class) && isReference(pm.type()));
     }
 
     public static boolean isReferenceCollection(PropertyMeta<?, ?> propertyMeta) {
-        return referenceCollectionPropertiesCache.computeIfAbsent(propertyMeta, pm -> isReferenceCollection(pm.type()) && !pm.hasAnnotation(Embedded.class));
+        return referenceCollectionPropertiesCache.computeIfAbsent(propertyMeta, pm -> !pm.hasAnnotation(Embedded.class) && isReferenceCollection(pm.type()));
+    }
+
+    public static boolean isReferenceMap(PropertyMeta<?, ?> propertyMeta) {
+        return referenceMapPropertiesCache.computeIfAbsent(propertyMeta, pm -> !pm.hasAnnotation(Embedded.class) && isReferenceMap(pm.type()));
     }
 
     public static boolean isEmbedded(PropertyMeta<?, ?> propertyMeta) {
-        return embeddedPropertiesCache.computeIfAbsent(propertyMeta, pm -> isEmbedded(pm.type()) || (isReference(pm.type()) && pm.hasAnnotation(Embedded.class)));
+        return embeddedPropertiesCache.computeIfAbsent(propertyMeta, pm -> pm.hasAnnotation(Embedded.class) || isEmbedded(pm.type()));
     }
 
     public static boolean isReference(TypeToken<?> typeToken) {
@@ -39,6 +44,10 @@ public class PropertyMetas {
 
     public static boolean isReferenceCollection(TypeToken<?> typeToken) {
         return typeToken.isSubtypeOf(Collection.class) && isReference(MoreTypeTokens.argType(typeToken, Collection.class));
+    }
+
+    public static boolean isReferenceMap(TypeToken<?> typeToken) {
+        return typeToken.isSubtypeOf(Map.class) && isReference(MoreTypeTokens.argType(typeToken, Map.class, 1));
     }
 
     public static Optional<TypeToken<?>> getReferencedType(PropertyMeta<?, ?> propertyMeta) {

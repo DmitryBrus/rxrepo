@@ -33,7 +33,7 @@ public class BatchUpdateQueryProviderDecorator extends AbstractQueryProviderDeco
     }
 
     private <K, S> Completable batchInsertOrUpdate(MetaClassWithKey<K, S> metaClass, Iterable<S> entities, boolean recursive) {
-        return super.insert(metaClass, entities, true)
+        return super.insert(metaClass, entities, recursive)
                 .onErrorResumeNext(e -> e instanceof ConcurrentModificationException
                         ? Completable.defer(() -> super.insertOrUpdate(metaClass, entities, recursive)
                         .onErrorResumeNext(_e -> _e instanceof ConcurrentModificationException
