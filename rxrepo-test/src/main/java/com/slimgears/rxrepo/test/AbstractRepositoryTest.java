@@ -1334,14 +1334,19 @@ public abstract class AbstractRepositoryTest {
     @Test
     @UseLogLevel(LogLevel.DEBUG)
     public void testLargeUpdateNoReferences() throws InterruptedException {
-        repository.entities(Inventory.metaClass).update(Streams
-                .fromIterable(Products.createMany(1, 100000, 1))
+        Iterable<Product> products = Products.createMany(20000);
+        Iterable<Inventory> inventories = Streams
+                .fromIterable(products)
                 .map(Product::inventory)
-                .collect(Collectors.toList()))
-                .test()
-                .await()
-                .assertNoErrors()
-                .assertComplete();
+                .collect(Collectors.toSet());
+        Iterable<Manufacturer> manufacturers = Streams
+                .fromIterable(inventories)
+                .map(Inventory::manufacturer)
+                .collect(Collectors.toSet());
+
+        repository.entities(Manufacturer.metaClass).updateNonRecursive(manufacturers).blockingAwait();
+        repository.entities(Inventory.metaClass).updateNonRecursive(inventories).blockingAwait();
+        repository.entities(Product.metaClass).updateNonRecursive(products).blockingAwait();
     }
 
     @Test

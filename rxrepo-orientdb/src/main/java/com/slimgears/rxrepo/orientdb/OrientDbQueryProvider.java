@@ -24,6 +24,7 @@ import com.slimgears.util.autovalue.annotations.*;
 import com.slimgears.util.autovalue.annotations.HasMetaClassWithKey;
 import com.slimgears.util.autovalue.annotations.MetaClass;
 import com.slimgears.util.autovalue.annotations.MetaClassWithKey;
+import com.slimgears.util.generic.MoreStrings;
 import com.slimgears.util.stream.Optionals;
 import com.slimgears.util.stream.Streams;
 import io.reactivex.Completable;
@@ -106,11 +107,11 @@ public class OrientDbQueryProvider extends DefaultSqlQueryProvider {
         Stopwatch stopwatch = Stopwatch.createStarted();
 
         return schemaGenerator.createOrUpdate(metaClass)
-                .andThen(dbSessionProvider.completeWithSession(session -> createAndSaveElements(session, entities)))
+                .andThen(dbSessionProvider.completeWithSession(session -> createAndSaveElements(session, entities, recursive)))
                 .doOnComplete(() -> log.trace("Total insert time: {}s", stopwatch.elapsed(TimeUnit.SECONDS)));
     }
 
-    private <S> Collection<OElement> createAndSaveElements(ODatabaseDocument dbSession, Iterable<S> entities) {
+    private <S> Collection<OElement> createAndSaveElements(ODatabaseDocument dbSession, Iterable<S> entities, boolean recursive) {
         AtomicLong seqNum = new AtomicLong();
         Table<MetaClass<?>, Object, Object> cache = HashBasedTable.create();
         OIntent previousIntent = dbSession.getActiveIntent();
@@ -122,7 +123,7 @@ public class OrientDbQueryProvider extends DefaultSqlQueryProvider {
             Map<CacheKey, OElement> elements = Streams.fromIterable(entities)
                     .collect(Collectors
                             .toMap(this::toCacheKey,
-                                    entity -> toOrientDbObject(entity, cache, dbSession, seqNum.get()).save(),
+                                    entity -> toOrientDbObject(entity, cache, dbSession, seqNum.get(), recursive).save(),
                                     (a, b) -> b,
                                     LinkedHashMap::new));
             dbSession.commit();
@@ -148,7 +149,7 @@ public class OrientDbQueryProvider extends DefaultSqlQueryProvider {
         return (OElement)converter.toOrientDbObject(entity);
     }
 
-    private <S> OElement toOrientDbObject(S entity, Table<MetaClass<?>, Object, Object> queryCache, ODatabaseDocument dbSession, long seqNum) {
+    private <S> OElement toOrientDbObject(S entity, Table<MetaClass<?>, Object, Object> queryCache, ODatabaseDocument dbSession, long seqNum, boolean recursive) {
         OElement oEl = toOrientDbObject(entity, OrientDbObjectConverter.create(
                 meta -> {
                     OElement element = dbSession.newElement(statementProvider.tableName((MetaClassWithKey<?, ?>) meta));
@@ -162,14 +163,20 @@ public class OrientDbQueryProvider extends DefaultSqlQueryProvider {
                             () -> Optional.ofNullable(queryCache.get(metaClass, key)),
                             () -> Optional.ofNullable(refCache.getIfPresent(CacheKey.create(metaClass, key))),
                             () -> queryDocument(hasMetaClass, dbSession),
-                            () -> Optional
-                                    .ofNullable(converter.toOrientDbObject(hasMetaClass))
-                                    .map(OElement.class::cast)
-                                    .map(element -> {
-                                        element.setProperty(SqlFields.sequenceFieldName, seqNum);
-                                        queryCache.put(metaClass, key, element);
-                                        return element;
-                                    }))
+                            () -> {
+                                if (recursive) {
+                                    return Optional
+                                            .ofNullable(converter.toOrientDbObject(hasMetaClass))
+                                            .map(OElement.class::cast)
+                                            .map(element -> {
+                                                element.setProperty(SqlFields.sequenceFieldName, seqNum);
+                                                queryCache.put(metaClass, key, element);
+                                                return element;
+                                            });
+                                } else {
+                                    throw new RuntimeException(MoreStrings.format("Could not find referenced object {}({})", metaClass.simpleName(), key));
+                                }
+                            })
                             .orElse(null);
                 },
                 keyEncoder));

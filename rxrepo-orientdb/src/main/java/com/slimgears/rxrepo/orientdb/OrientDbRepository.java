@@ -206,9 +206,9 @@ public class OrientDbRepository {
             return serviceFactoryBuilder(dbSessionProvider)
                     .onClose(Safe.ofRunnable(dbSessionProvider::close), dbClient::close)
                     .decorate(
+                            BatchUpdateQueryProviderDecorator.create(batchBufferSize),
                             RetryOnConcurrentConflictQueryProviderDecorator.create(Duration.ofMillis(config.retryInitialDurationMillis()), config.retryCount()),
                             OrientDbUpdateReferencesFirstQueryProviderDecorator.create(),
-                            BatchUpdateQueryProviderDecorator.create(batchBufferSize),
                             LiveQueryProviderDecorator.create(Duration.ofMillis(config.aggregationDebounceTimeMillis())),
                             ObserveOnSchedulingQueryProviderDecorator.create(Schedulers.io()),
                             OrientDbDropDatabaseQueryProviderDecorator.create(dbClient, dbName),
