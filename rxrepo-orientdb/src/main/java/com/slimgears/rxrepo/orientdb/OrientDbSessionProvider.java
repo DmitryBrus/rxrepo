@@ -18,6 +18,7 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
+@SuppressWarnings("ResultOfMethodCallIgnored")
 class OrientDbSessionProvider implements AutoCloseable {
     private final static MetricCollector metrics = Metrics.collector(OrientDbRepository.class);
     private final static Logger log = LoggerFactory.getLogger(OrientDbSessionProvider.class);
@@ -98,13 +99,16 @@ class OrientDbSessionProvider implements AutoCloseable {
     }
 
     @Override
-    public void close() throws InterruptedException {
+    public void close() {
         if (closed.compareAndSet(false, true)) {
             closedSubject.onComplete();
             //this.executorService.shutdown();
             this.executorService.shutdownNow();
-            //noinspection ResultOfMethodCallIgnored
-            this.executorService.awaitTermination(10, TimeUnit.SECONDS);
+            try {
+                this.executorService.awaitTermination(10, TimeUnit.SECONDS);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
             log.debug("Active threads: {}", Thread.activeCount());
         }
     }

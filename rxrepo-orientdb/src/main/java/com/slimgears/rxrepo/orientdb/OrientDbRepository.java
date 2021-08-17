@@ -12,7 +12,6 @@ import com.slimgears.rxrepo.query.decorator.*;
 import com.slimgears.rxrepo.query.provider.QueryProvider;
 import com.slimgears.rxrepo.sql.*;
 import com.slimgears.util.stream.Lazy;
-import com.slimgears.util.stream.Safe;
 import io.reactivex.schedulers.Schedulers;
 
 import javax.annotation.Nonnull;
@@ -55,7 +54,8 @@ public class OrientDbRepository {
         private Function<Executor, Executor> executorDecorator = Function.identity();
 
         private final Map<OGlobalConfiguration, Object> customConfig = new HashMap<>();
-        private int maxConnections = 12;
+        private int maxUpdateConnections = 12;
+        private int maxQueryConnections = 12;
 
         public final Builder enableBatchSupport() {
             return enableBatchSupport(true);
@@ -73,7 +73,18 @@ public class OrientDbRepository {
         }
 
         public final Builder maxConnections(int maxConnections) {
-            this.maxConnections = maxConnections;
+            this.maxUpdateConnections = maxConnections / 2;
+            this.maxQueryConnections = maxConnections / 2;
+            return this;
+        }
+
+        public final Builder maxUpdateConnections(int maxConnections) {
+            this.maxUpdateConnections = maxConnections;
+            return this;
+        }
+
+        public final Builder maxQueryConnections(int maxConnections) {
+            this.maxQueryConnections = maxConnections;
             return this;
         }
 
@@ -182,29 +193,34 @@ public class OrientDbRepository {
             return this;
         }
 
-        private SqlServiceFactory.Builder<?> serviceFactoryBuilder(OrientDbSessionProvider dbSessionProvider) {
+        private SqlServiceFactory.Builder<?> serviceFactoryBuilder(OrientDbSessionProvider updateSessionProvider, OrientDbSessionProvider querySessionProvider) {
             return DefaultSqlServiceFactory.builder()
-                    .schemaProvider(svc -> new OrientDbSqlSchemaGenerator(dbSessionProvider))
-                    .statementExecutor(svc -> OrientDbMappingStatementExecutor.decorate(new OrientDbStatementExecutor(dbSessionProvider), svc.keyEncoder()))
+                    .schemaProvider(svc -> new OrientDbSqlSchemaGenerator(updateSessionProvider))
+                    .statementExecutor(svc -> OrientDbMappingStatementExecutor.decorate(new OrientDbStatementExecutor(updateSessionProvider, querySessionProvider), svc.keyEncoder()))
                     .expressionGenerator(svc -> OrientDbSqlExpressionGenerator.create(svc.keyEncoder()))
-                    .dbNameProvider(Lazy.of(() -> dbSessionProvider.session().map(ODatabaseDocument::getName).blockingGet()))
+                    .dbNameProvider(Lazy.of(() -> querySessionProvider.session().map(ODatabaseDocument::getName).blockingGet()))
                     .statementProvider(svc -> new OrientDbSqlStatementProvider(
                             svc.expressionGenerator(),
                             svc.typeMapper(),
                             svc.keyEncoder(),
                             svc.dbNameProvider()))
                     .referenceResolver(svc -> new OrientDbSqlReferenceResolver(svc.statementProvider()))
-                    .queryProviderGenerator(svc -> batchSupport ? OrientDbQueryProvider.create(svc, dbSessionProvider, batchBufferSize) : DefaultSqlQueryProvider.create(svc))
+                    .queryProviderGenerator(svc -> batchSupport ? OrientDbQueryProvider.create(svc, updateSessionProvider) : DefaultSqlQueryProvider.create(svc))
                     .keyEncoder(DigestKeyEncoder::create);
+        }
+
+        private OrientDbSessionProvider createSessionProvider(Lazy<OrientDB> dbClient, int maxConnections) {
+            return OrientDbSessionProvider.create(() -> dbClient.get().open(dbName, user, password), maxConnections);
         }
 
         @Override
         protected SqlServiceFactory.Builder<?> serviceFactoryBuilder(RepositoryConfig config) {
             Lazy<OrientDB> dbClient = Lazy.of(() -> createClient(url, serverUser, serverPassword, dbName, dbType));
-            OrientDbSessionProvider dbSessionProvider = OrientDbSessionProvider.create(() -> dbClient.get().open(dbName, user, password), maxConnections);
+            OrientDbSessionProvider updateSessionProvider = createSessionProvider(dbClient, maxUpdateConnections);
+            OrientDbSessionProvider querySessionProvider = createSessionProvider(dbClient, maxQueryConnections);
 
-            return serviceFactoryBuilder(dbSessionProvider)
-                    .onClose(Safe.ofRunnable(dbSessionProvider::close), dbClient::close)
+            return serviceFactoryBuilder(updateSessionProvider, querySessionProvider)
+                    .onClose(updateSessionProvider::close, querySessionProvider::close, dbClient::close)
                     .decorate(
                             BatchUpdateQueryProviderDecorator.create(batchBufferSize),
                             RetryOnConcurrentConflictQueryProviderDecorator.create(Duration.ofMillis(config.retryInitialDurationMillis()), config.retryCount()),

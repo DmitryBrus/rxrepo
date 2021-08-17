@@ -11,7 +11,6 @@ import com.orientechnologies.orient.core.exception.OConcurrentModificationExcept
 import com.orientechnologies.orient.core.id.ORID;
 import com.orientechnologies.orient.core.intent.OIntent;
 import com.orientechnologies.orient.core.intent.OIntentMassiveInsert;
-import com.orientechnologies.orient.core.intent.OIntentMassiveInsert;
 import com.orientechnologies.orient.core.metadata.sequence.OSequence;
 import com.orientechnologies.orient.core.record.OElement;
 import com.orientechnologies.orient.core.sql.executor.OResultSet;
@@ -19,8 +18,7 @@ import com.orientechnologies.orient.core.storage.ORecordDuplicatedException;
 import com.slimgears.rxrepo.expressions.PropertyExpression;
 import com.slimgears.rxrepo.query.provider.QueryInfo;
 import com.slimgears.rxrepo.sql.*;
-import com.slimgears.util.autovalue.annotations.*;
-//import com.slimgears.rxrepo.util.SchedulingProvider;
+import com.slimgears.util.autovalue.annotations.HasMetaClass;
 import com.slimgears.util.autovalue.annotations.HasMetaClassWithKey;
 import com.slimgears.util.autovalue.annotations.MetaClass;
 import com.slimgears.util.autovalue.annotations.MetaClassWithKey;
@@ -33,8 +31,6 @@ import org.slf4j.LoggerFactory;
 
 import java.time.Duration;
 import java.util.*;
-import java.util.ConcurrentModificationException;
-import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
@@ -43,7 +39,7 @@ import static com.slimgears.rxrepo.orientdb.OrientDbSqlSchemaGenerator.sequenceN
 
 public class OrientDbQueryProvider extends DefaultSqlQueryProvider {
     private final static Logger log = LoggerFactory.getLogger(OrientDbQueryProvider.class);
-    private final OrientDbSessionProvider dbSessionProvider;
+    private final OrientDbSessionProvider sessionProvider;
     private final KeyEncoder keyEncoder;
     private final Cache<CacheKey, ORID> refCache = CacheBuilder.newBuilder()
             .initialCapacity(10000)
@@ -81,20 +77,21 @@ public class OrientDbQueryProvider extends DefaultSqlQueryProvider {
                           SqlStatementExecutor statementExecutor,
                           SqlSchemaGenerator schemaGenerator,
                           SqlReferenceResolver referenceResolver,
-                          OrientDbSessionProvider dbSessionProvider,
+                          OrientDbSessionProvider sessionProvider,
                           KeyEncoder keyEncoder) {
         super(statementProvider, statementExecutor, schemaGenerator, referenceResolver);
-        this.dbSessionProvider = dbSessionProvider;
+        this.sessionProvider = sessionProvider;
         this.keyEncoder = keyEncoder;
     }
 
-    static OrientDbQueryProvider create(SqlServiceFactory serviceFactory, OrientDbSessionProvider sessionProvider, int bufferSize) {
+    static OrientDbQueryProvider create(SqlServiceFactory serviceFactory,
+                                        OrientDbSessionProvider updateSessionProvider) {
         return new OrientDbQueryProvider(
                 serviceFactory.statementProvider(),
                 serviceFactory.statementExecutor(),
                 serviceFactory.schemaProvider(),
                 serviceFactory.referenceResolver(),
-                sessionProvider,
+                updateSessionProvider,
                 serviceFactory.keyEncoder());
     }
 
@@ -107,7 +104,7 @@ public class OrientDbQueryProvider extends DefaultSqlQueryProvider {
         Stopwatch stopwatch = Stopwatch.createStarted();
 
         return schemaGenerator.createOrUpdate(metaClass)
-                .andThen(dbSessionProvider.completeWithSession(session -> createAndSaveElements(session, metaClass, entities, recursive)))
+                .andThen(sessionProvider.completeWithSession(session -> createAndSaveElements(session, metaClass, entities, recursive)))
                 .doOnComplete(() -> log.trace("Total insert time: {}s", stopwatch.elapsed(TimeUnit.SECONDS)));
     }
 

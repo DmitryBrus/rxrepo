@@ -1318,10 +1318,9 @@ public abstract class AbstractRepositoryTest {
     @Test
     @UseLogLevel(LogLevel.INFO)
     public void testLargeUpdate() throws InterruptedException {
-
         int count = Optional.ofNullable(System.getProperty("test.testLargeUpdate.count"))
                 .map(Integer::valueOf)
-                .orElse(100000);
+                .orElse(20000);
         repository.entities(Product.metaClass).update(Products.createMany(count))
                 .test()
                 .await()
