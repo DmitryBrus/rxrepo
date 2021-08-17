@@ -78,15 +78,12 @@ public class UpdateReferencesFirstQueryProviderDecorator extends AbstractQueryPr
         }
 
         Stream<S> entityStream = Streams.fromIterable(entities);
-        List<T> referencedObjects = this.<S, T>getReferences(property, entityStream)
+        Map<K, T> referencedObjects = this.<S, T>getReferences(property, entityStream)
                 .filter(Objects::nonNull)
-                .collect(Collectors.groupingBy(this::keyOf, Collectors.reducing((a, b) -> a)))
-                .values().stream()
-                .flatMap(o -> o.map(Stream::of).orElseGet(Stream::empty))
-                .collect(Collectors.toList());
+                .collect(Collectors.toMap(refMeta::keyOf, e -> e, (a, b) -> a));
         return referencedObjects.isEmpty()
                 ? Completable.complete()
-                : insertOrUpdate(refMeta, referencedObjects, true);
+                : insertOrUpdate(refMeta, referencedObjects.values(), true);
     }
 
     @SuppressWarnings("unchecked")

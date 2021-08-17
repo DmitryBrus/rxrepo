@@ -107,26 +107,29 @@ public class OrientDbQueryProvider extends DefaultSqlQueryProvider {
         Stopwatch stopwatch = Stopwatch.createStarted();
 
         return schemaGenerator.createOrUpdate(metaClass)
-                .andThen(dbSessionProvider.completeWithSession(session -> createAndSaveElements(session, entities, recursive)))
+                .andThen(dbSessionProvider.completeWithSession(session -> createAndSaveElements(session, metaClass, entities, recursive)))
                 .doOnComplete(() -> log.trace("Total insert time: {}s", stopwatch.elapsed(TimeUnit.SECONDS)));
     }
 
-    private <S> Collection<OElement> createAndSaveElements(ODatabaseDocument dbSession, Iterable<S> entities, boolean recursive) {
+    private <S> Collection<OElement> createAndSaveElements(ODatabaseDocument dbSession, MetaClass<S> metaClass, Iterable<S> entities, boolean recursive) {
         AtomicLong seqNum = new AtomicLong();
-        Table<MetaClass<?>, Object, Object> cache = HashBasedTable.create();
         OIntent previousIntent = dbSession.getActiveIntent();
         try {
             dbSession.declareIntent(new OIntentMassiveInsert());
             dbSession.begin();
             OSequence sequence = dbSession.getMetadata().getSequenceLibrary().getSequence(sequenceName);
             seqNum.set(sequence.next());
+            log.trace("Converting {} entities to ODocument", metaClass.simpleName());
+            Table<MetaClass<?>, Object, Object> cache = HashBasedTable.create();
             Map<CacheKey, OElement> elements = Streams.fromIterable(entities)
                     .collect(Collectors
                             .toMap(this::toCacheKey,
                                     entity -> toOrientDbObject(entity, cache, dbSession, seqNum.get(), recursive).save(),
                                     (a, b) -> b,
                                     LinkedHashMap::new));
+            log.trace("[{}] {} entities converted to ODocument", metaClass.simpleName(), elements.size());
             dbSession.commit();
+            log.trace("[{}] {} ODocument objects saved to DB", metaClass.simpleName(), elements.size());
             elements.forEach((key, value) -> refCache.put(key, value.getRecord().getIdentity()));
             return elements.values();
         } catch (OConcurrentModificationException | ORecordDuplicatedException e) {

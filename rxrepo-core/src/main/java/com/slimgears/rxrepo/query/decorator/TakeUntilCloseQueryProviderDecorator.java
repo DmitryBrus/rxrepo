@@ -74,8 +74,7 @@ public class TakeUntilCloseQueryProviderDecorator implements QueryProvider.Decor
 
         private <T> ObservableTransformer<T, T> applyTakeUntilClose() {
             return src -> src
-                    .takeUntil(closeObservable.doOnNext(t -> log.info("Stopping observable due to repository close")))
-                    .doFinally(() -> log.info("Observation was completed"));
+                    .takeUntil(closeObservable.doOnNext(t -> log.debug("Stopping observable due to repository close")));
         }
     }
 }

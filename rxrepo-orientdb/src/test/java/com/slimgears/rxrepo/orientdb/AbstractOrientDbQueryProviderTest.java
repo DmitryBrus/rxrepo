@@ -58,7 +58,7 @@ public abstract class AbstractOrientDbQueryProviderTest extends AbstractReposito
                 .name(name)
                 .decorate(
                         OperationTimeoutQueryProviderDecorator.create(Duration.ofSeconds(20), Duration.ofSeconds(360)))
-                .enableBatchSupport(100)
+                .enableBatchSupport(1000)
                 .maxConnections(10)
                 .build();
     }

@@ -29,6 +29,7 @@ class OrientDbSqlSchemaGenerator implements SqlSchemaGenerator {
     private final Completable sequenceCreated;
     final static String sequenceName = "sequenceNum";
 
+
     OrientDbSqlSchemaGenerator(OrientDbSessionProvider sessionProvider) {
         this.dbSessionProvider = sessionProvider;
         this.sequenceCreated = Completable.fromAction(() -> dbSessionProvider.withSession(session -> {
