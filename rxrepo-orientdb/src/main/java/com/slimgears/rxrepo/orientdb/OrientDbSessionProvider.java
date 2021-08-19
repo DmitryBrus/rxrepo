@@ -3,7 +3,6 @@ package com.slimgears.rxrepo.orientdb;
 import com.orientechnologies.orient.core.db.document.ODatabaseDocument;
 import com.slimgears.nanometer.MetricCollector;
 import com.slimgears.nanometer.Metrics;
-import com.slimgears.rxrepo.util.ThreadPools;
 import com.slimgears.util.generic.RecurrentThreadLocal;
 import com.slimgears.util.stream.Safe;
 import io.reactivex.*;
