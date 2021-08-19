@@ -123,17 +123,46 @@ public class OrientDbQueryProvider extends DefaultSqlQueryProvider {
             dbSession.begin();
             OSequence sequence = dbSession.getMetadata().getSequenceLibrary().getSequence(sequenceName);
             seqNum.set(sequence.next());
-            log.trace("Converting {} entities to ODocument", metaClass.simpleName());
             Table<MetaClass<?>, Object, Object> cache = HashBasedTable.create();
+
+            OrientDbObjectConverter objectConverter = OrientDbObjectConverter.create(
+                    meta -> {
+                        OElement element = dbSession.newElement(statementProvider.tableName((MetaClassWithKey<?, ?>) meta));
+                        element.setProperty(SqlFields.sequenceFieldName, seqNum);
+                        return element;
+                    },
+                    (converter, hasMetaClass) -> {
+                        Object key = keyOf(hasMetaClass);
+                        MetaClassWithKey<?, ?> _metaClass = hasMetaClass.metaClass();
+                        return Optionals.or(
+                                        () -> Optional.ofNullable(cache.get(_metaClass, key)),
+                                        () -> Optional.ofNullable(refCache.getIfPresent(CacheKey.create(_metaClass, key))),
+                                        () -> queryDocument(hasMetaClass, dbSession),
+                                        () -> {
+                                            if (recursive) {
+                                                return Optional
+                                                        .ofNullable(converter.toOrientDbObject(hasMetaClass))
+                                                        .map(OElement.class::cast)
+                                                        .map(element -> {
+                                                            element.setProperty(SqlFields.sequenceFieldName, seqNum);
+                                                            cache.put(_metaClass, key, element);
+                                                            return element;
+                                                        });
+                                            } else {
+                                                throw new RuntimeException(MoreStrings.format("Could not find referenced object {}({})", _metaClass.simpleName(), key));
+                                            }
+                                        })
+                                .orElse(null);
+                    },
+                    keyEncoder);
+
             Map<CacheKey, OElement> elements = Streams.fromIterable(entities)
                     .collect(Collectors
                             .toMap(this::toCacheKey,
-                                    entity -> toOrientDbObject(entity, cache, dbSession, seqNum.get(), recursive).save(),
+                                    entity -> toOrientDbObject(entity, cache, objectConverter).save(),
                                     (a, b) -> b,
                                     LinkedHashMap::new));
-            log.trace("[{}] {} entities converted to ODocument", metaClass.simpleName(), elements.size());
             dbSession.commit();
-            log.trace("[{}] {} ODocument objects saved to DB", metaClass.simpleName(), elements.size());
             elements.forEach((key, value) -> refCache.put(key, value.getRecord().getIdentity()));
             return elements.values();
         } catch (OConcurrentModificationException | ORecordDuplicatedException e) {
@@ -156,37 +185,8 @@ public class OrientDbQueryProvider extends DefaultSqlQueryProvider {
         return (OElement)converter.toOrientDbObject(entity);
     }
 
-    private <S> OElement toOrientDbObject(S entity, Table<MetaClass<?>, Object, Object> queryCache, ODatabaseDocument dbSession, long seqNum, boolean recursive) {
-        OElement oEl = toOrientDbObject(entity, OrientDbObjectConverter.create(
-                meta -> {
-                    OElement element = dbSession.newElement(statementProvider.tableName((MetaClassWithKey<?, ?>) meta));
-                    element.setProperty(SqlFields.sequenceFieldName, seqNum);
-                    return element;
-                },
-                (converter, hasMetaClass) -> {
-                    Object key = keyOf(hasMetaClass);
-                    MetaClassWithKey<?, ?> metaClass = hasMetaClass.metaClass();
-                    return Optionals.or(
-                            () -> Optional.ofNullable(queryCache.get(metaClass, key)),
-                            () -> Optional.ofNullable(refCache.getIfPresent(CacheKey.create(metaClass, key))),
-                            () -> queryDocument(hasMetaClass, dbSession),
-                            () -> {
-                                if (recursive) {
-                                    return Optional
-                                            .ofNullable(converter.toOrientDbObject(hasMetaClass))
-                                            .map(OElement.class::cast)
-                                            .map(element -> {
-                                                element.setProperty(SqlFields.sequenceFieldName, seqNum);
-                                                queryCache.put(metaClass, key, element);
-                                                return element;
-                                            });
-                                } else {
-                                    throw new RuntimeException(MoreStrings.format("Could not find referenced object {}({})", metaClass.simpleName(), key));
-                                }
-                            })
-                            .orElse(null);
-                },
-                keyEncoder));
+    private <S> OElement toOrientDbObject(S entity, Table<MetaClass<?>, Object, Object> queryCache, OrientDbObjectConverter objectConverter) {
+        OElement oEl = toOrientDbObject(entity, objectConverter);
         queryCache.put(((HasMetaClass<?>)entity).metaClass(), entity, oEl);
         return oEl;
     }

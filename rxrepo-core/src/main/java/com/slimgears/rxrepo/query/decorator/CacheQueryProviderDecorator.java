@@ -2,6 +2,7 @@ package com.slimgears.rxrepo.query.decorator;
 
 import com.slimgears.nanometer.MetricCollector;
 import com.slimgears.nanometer.Metrics;
+import com.slimgears.rxrepo.expressions.Aggregator;
 import com.slimgears.rxrepo.query.Notification;
 import com.slimgears.rxrepo.query.provider.QueryInfo;
 import com.slimgears.rxrepo.query.provider.QueryProvider;
@@ -28,6 +29,7 @@ public class CacheQueryProviderDecorator implements QueryProvider.Decorator {
 
     private static class DecoratedProvider extends AbstractQueryProviderDecorator {
         private final Map<QueryInfo<?, ?, ?>, Observable<Notification<?>>> activeQueries = new ConcurrentHashMap<>();
+        private final Map<QueryInfo<?, ?, ?>, Observable<Notification<?>>> activeAggregateQueries = new ConcurrentHashMap<>();
 
         private DecoratedProvider(QueryProvider underlyingProvider) {
             super(underlyingProvider);
@@ -36,18 +38,15 @@ public class CacheQueryProviderDecorator implements QueryProvider.Decorator {
         @SuppressWarnings("unchecked")
         @Override
         public <K, S, T> Observable<Notification<T>> liveQuery(QueryInfo<K, S, T> query) {
-            MetricCollector.Gauge gauge = metrics.gauge("activeQueries");
             return (Observable<Notification<T>>)(Observable<?>)activeQueries
                     .computeIfAbsent(query, q -> (Observable<Notification<?>>)(Observable<?>)super
                             .liveQuery(query)
                             .doOnSubscribe(d -> {
                                 log.debug("New subscription added. Currently active: {}. Currently subscribed query: {}", activeQueries.size(), query);
-                                gauge.record(activeQueries.size());
                             })
                             .doFinally(() -> {
                                 activeQueries.remove(query);
                                 log.debug("Subscription closed. Currently active: {}", activeQueries.size());
-                                gauge.record(activeQueries.size());
                             })
                             .share());
         }

@@ -11,6 +11,7 @@ import com.slimgears.rxrepo.query.RepositoryConfig;
 import com.slimgears.rxrepo.query.decorator.*;
 import com.slimgears.rxrepo.query.provider.QueryProvider;
 import com.slimgears.rxrepo.sql.*;
+import com.slimgears.rxrepo.util.ThreadPools;
 import com.slimgears.util.stream.Lazy;
 import com.slimgears.util.stream.Safe;
 import io.reactivex.schedulers.Schedulers;
@@ -249,6 +250,7 @@ public class OrientDbRepository {
                             BatchUpdateQueryProviderDecorator.create(batchBufferSize),
                             RetryOnConcurrentConflictQueryProviderDecorator.create(Duration.ofMillis(config.retryInitialDurationMillis()), config.retryCount()),
                             OrientDbUpdateReferencesFirstQueryProviderDecorator.create(),
+                            //CacheQueryProviderDecorator.create(),
                             LiveQueryProviderDecorator.create(Duration.ofMillis(config.aggregationDebounceTimeMillis())),
                             ObserveOnSchedulingQueryProviderDecorator.create(Schedulers.from(queryResultPool)),
                             OrientDbDropDatabaseQueryProviderDecorator.create(dbClient, dbName),

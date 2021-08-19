@@ -15,12 +15,13 @@ import com.slimgears.util.stream.Streams;
 import io.reactivex.Completable;
 import io.reactivex.Observable;
 import io.reactivex.Single;
-import io.reactivex.schedulers.Schedulers;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ConcurrentModificationException;
+import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -34,6 +35,7 @@ class OrientDbStatementExecutor implements SqlStatementExecutor {
     private final OrientDbSessionProvider updateSessionProvider;
     private final OrientDbSessionProvider querySessionProvider;
     private final OrientDbReferencedObjectProvider referencedObjectProvider;
+    private final Map<SqlStatement, Observable<Notification<PropertyResolver>>> liveQueryCache = new ConcurrentHashMap<>();
 
     OrientDbStatementExecutor(OrientDbSessionProvider updateSessionProvider,
                               OrientDbSessionProvider querySessionProvider,
@@ -91,6 +93,10 @@ class OrientDbStatementExecutor implements SqlStatementExecutor {
 
     @Override
     public Observable<Notification<PropertyResolver>> executeLiveQuery(SqlStatement statement) {
+        return liveQueryCache.computeIfAbsent(statement, this::createLiveQueryObservable);
+    }
+
+    private Observable<Notification<PropertyResolver>> createLiveQueryObservable(SqlStatement statement) {
         return Observable.<OrientDbLiveQueryListener.LiveQueryNotification>create(emitter -> {
                     logStatement("Live querying", statement);
                     querySessionProvider.withSession(dbSession -> {
@@ -114,7 +120,12 @@ class OrientDbStatementExecutor implements SqlStatementExecutor {
                         Optional.ofNullable(res.newResult())
                                 .map(or -> OResultPropertyResolver.create(referencedObjectProvider, or))
                                 .orElse(null),
-                        res.sequenceNumber()));
+                        res.sequenceNumber()))
+                .doFinally(() -> liveQueryCache.remove(statement))
+                .retry(10)
+                .share()
+                .doOnSubscribe(d -> log.debug("[Subscribed] Active live queries: {}", liveQueryCache.size()))
+                .doFinally(() -> log.debug("[Unsubscribed] Active live queries: {}", liveQueryCache.size()));
     }
 
     private Observable<PropertyResolver> toObservable(OrientDbSessionProvider sessionProvider, Function<ODatabaseDocument, OResultSet> resultSetSupplier) {
