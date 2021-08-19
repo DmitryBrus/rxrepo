@@ -15,6 +15,7 @@ import com.slimgears.util.stream.Streams;
 import io.reactivex.Completable;
 import io.reactivex.Observable;
 import io.reactivex.Single;
+import io.reactivex.schedulers.Schedulers;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -32,10 +33,14 @@ class OrientDbStatementExecutor implements SqlStatementExecutor {
     private final static Logger log = LoggerFactory.getLogger(OrientDbStatementExecutor.class);
     private final OrientDbSessionProvider updateSessionProvider;
     private final OrientDbSessionProvider querySessionProvider;
+    private final OrientDbReferencedObjectProvider referencedObjectProvider;
 
-    OrientDbStatementExecutor(OrientDbSessionProvider updateSessionProvider, OrientDbSessionProvider querySessionProvider) {
+    OrientDbStatementExecutor(OrientDbSessionProvider updateSessionProvider,
+                              OrientDbSessionProvider querySessionProvider,
+                              OrientDbReferencedObjectProvider referencedObjectProvider) {
         this.updateSessionProvider = updateSessionProvider;
         this.querySessionProvider = querySessionProvider;
+        this.referencedObjectProvider = referencedObjectProvider;
     }
 
     @Override
@@ -91,7 +96,7 @@ class OrientDbStatementExecutor implements SqlStatementExecutor {
                     querySessionProvider.withSession(dbSession -> {
                         OLiveQueryMonitor monitor = dbSession.live(
                                 statement.statement(),
-                                new OrientDbLiveQueryListener(emitter, statement),
+                                new OrientDbLiveQueryListener(emitter),
                                 statement.args());
                         emitter.setCancellable(() -> {
                             try {
@@ -104,10 +109,10 @@ class OrientDbStatementExecutor implements SqlStatementExecutor {
                 })
                 .map(res -> Notification.ofModified(
                         Optional.ofNullable(res.oldResult())
-                                .map(or -> OResultPropertyResolver.create(querySessionProvider, or))
+                                .map(or -> OResultPropertyResolver.create(referencedObjectProvider, or))
                                 .orElse(null),
                         Optional.ofNullable(res.newResult())
-                                .map(or -> OResultPropertyResolver.create(querySessionProvider, or))
+                                .map(or -> OResultPropertyResolver.create(referencedObjectProvider, or))
                                 .orElse(null),
                         res.sequenceNumber()));
     }
@@ -122,7 +127,7 @@ class OrientDbStatementExecutor implements SqlStatementExecutor {
             resultSet.close();
             emitter.onComplete();
         }))
-                .map(res -> OResultPropertyResolver.create(sessionProvider, res));
+                .map(res -> OResultPropertyResolver.create(referencedObjectProvider, res));
     }
 
     private void logStatement(String title, SqlStatement statement) {

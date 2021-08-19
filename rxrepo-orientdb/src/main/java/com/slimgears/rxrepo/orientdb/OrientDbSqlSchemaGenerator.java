@@ -1,5 +1,6 @@
 package com.slimgears.rxrepo.orientdb;
 
+import com.google.common.collect.Iterables;
 import com.google.common.reflect.TypeToken;
 import com.orientechnologies.orient.core.db.document.ODatabaseDocument;
 import com.orientechnologies.orient.core.index.ORuntimeKeyIndexDefinition;
@@ -62,6 +63,11 @@ class OrientDbSqlSchemaGenerator implements SqlSchemaGenerator {
         String className = toClassName(metaClass);
         log.debug("Creating class: {}", className);
         OClass oClass = dbSession.createClassIfNotExist(className);
+
+        int count = Iterables.size(metaClass.properties());
+        if (count > 5) {
+            oClass.setOverSize((float)count / 5);
+        }
 
         Streams.fromIterable(metaClass.properties())
                 .forEach(p -> {

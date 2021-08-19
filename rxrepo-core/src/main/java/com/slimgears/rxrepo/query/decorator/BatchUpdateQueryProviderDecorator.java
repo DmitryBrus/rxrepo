@@ -4,6 +4,7 @@ import com.slimgears.rxrepo.query.provider.QueryProvider;
 import com.slimgears.util.autovalue.annotations.MetaClassWithKey;
 import io.reactivex.Completable;
 import io.reactivex.Observable;
+import io.reactivex.schedulers.Schedulers;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

@@ -7,13 +7,7 @@ import com.orientechnologies.orient.core.sql.executor.OResult;
 import com.slimgears.rxrepo.util.PropertyResolver;
 import com.slimgears.util.stream.Lazy;
 
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import static java.util.stream.Collectors.*;
@@ -27,12 +21,12 @@ class OResultPropertyResolver extends AbstractOrientPropertyResolver {
     private final BiMap<String, String> propertyToCanonicNameMap = HashBiMap.create();
     private final BiMap<String, String> propertyFromCanonicNameMap = propertyToCanonicNameMap.inverse();
 
-    private OResultPropertyResolver(OrientDbSessionProvider dbSessionProvider, OResult oResult) {
-        this(dbSessionProvider, oResult, "");
+    private OResultPropertyResolver(OrientDbReferencedObjectProvider refObjectProvider, OResult oResult) {
+        this(refObjectProvider, oResult, "");
     }
 
-    private OResultPropertyResolver(OrientDbSessionProvider dbSessionProvider, OResult oResult, String prefix) {
-        super(dbSessionProvider);
+    private OResultPropertyResolver(OrientDbReferencedObjectProvider refObjectProvider, OResult oResult, String prefix) {
+        super(refObjectProvider);
         this.oResult = oResult;
         this.prefix = prefix;
         this.index = (int)Arrays.stream(split(prefix)).filter(p -> !p.isEmpty()).count();
@@ -54,7 +48,7 @@ class OResultPropertyResolver extends AbstractOrientPropertyResolver {
                 .orElseGet(() -> {
                     Object obj = oResult.getProperty(prefix + fromCanonic(name));
                     if (obj instanceof OResult) {
-                        PropertyResolver resolver = OResultPropertyResolver.create(dbSessionProvider, (OResult)obj);
+                        PropertyResolver resolver = OResultPropertyResolver.create(refObjectProvider, (OResult)obj);
                         resolvers.put(prefix + fromCanonic(name), Lazy.of(() -> resolver));
                         obj = resolver;
                     }
@@ -62,9 +56,9 @@ class OResultPropertyResolver extends AbstractOrientPropertyResolver {
                 });
     }
 
-    static PropertyResolver create(OrientDbSessionProvider dbSessionProvider, OResult oResult) {
+    static PropertyResolver create(OrientDbReferencedObjectProvider refObjectProvider, OResult oResult) {
         return Optional.ofNullable(oResult)
-                .map(or -> new OResultPropertyResolver(dbSessionProvider, or).cache())
+                .map(or -> new OResultPropertyResolver(refObjectProvider, or).cache())
                 .orElse(null);
     }
 
@@ -87,7 +81,7 @@ class OResultPropertyResolver extends AbstractOrientPropertyResolver {
         map.entrySet()
                 .stream()
                 .filter(e -> !e.getValue().isEmpty() && e.getValue().get(0).length() > e.getKey().length())
-                .forEach(e -> resolvers.put(e.getKey(), Lazy.of(() -> new OResultPropertyResolver(dbSessionProvider, oResult, prefix + e.getKey() + "."))));
+                .forEach(e -> resolvers.put(e.getKey(), Lazy.of(() -> new OResultPropertyResolver(refObjectProvider, oResult, prefix + e.getKey() + "."))));
 
         return map.keySet().stream().map(this::toCanonic).collect(Collectors.toSet());
     }

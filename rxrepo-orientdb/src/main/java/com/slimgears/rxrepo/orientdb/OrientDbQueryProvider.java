@@ -41,11 +41,7 @@ public class OrientDbQueryProvider extends DefaultSqlQueryProvider {
     private final static Logger log = LoggerFactory.getLogger(OrientDbQueryProvider.class);
     private final OrientDbSessionProvider sessionProvider;
     private final KeyEncoder keyEncoder;
-    private final Cache<CacheKey, ORID> refCache = CacheBuilder.newBuilder()
-            .initialCapacity(10000)
-            .expireAfterAccess(Duration.ofMinutes(1))
-            .concurrencyLevel(10)
-            .build();
+    private final Cache<CacheKey, ORID> refCache;
 
     static class CacheKey {
         private final MetaClassWithKey<?, ?> metaClass;
@@ -78,21 +74,32 @@ public class OrientDbQueryProvider extends DefaultSqlQueryProvider {
                           SqlSchemaGenerator schemaGenerator,
                           SqlReferenceResolver referenceResolver,
                           OrientDbSessionProvider sessionProvider,
-                          KeyEncoder keyEncoder) {
+                          KeyEncoder keyEncoder,
+                          int cacheSize,
+                          Duration cacheExpirationTime) {
         super(statementProvider, statementExecutor, schemaGenerator, referenceResolver);
+        this.refCache = CacheBuilder.newBuilder()
+                .initialCapacity(cacheSize)
+                .expireAfterAccess(cacheExpirationTime)
+                .concurrencyLevel(10)
+                .build();
         this.sessionProvider = sessionProvider;
         this.keyEncoder = keyEncoder;
     }
 
     static OrientDbQueryProvider create(SqlServiceFactory serviceFactory,
-                                        OrientDbSessionProvider updateSessionProvider) {
+                                        OrientDbSessionProvider updateSessionProvider,
+                                        int cacheSize,
+                                        Duration cacheExpirationTime) {
         return new OrientDbQueryProvider(
                 serviceFactory.statementProvider(),
                 serviceFactory.statementExecutor(),
                 serviceFactory.schemaProvider(),
                 serviceFactory.referenceResolver(),
                 updateSessionProvider,
-                serviceFactory.keyEncoder());
+                serviceFactory.keyEncoder(),
+                cacheSize,
+                cacheExpirationTime);
     }
 
     @Override

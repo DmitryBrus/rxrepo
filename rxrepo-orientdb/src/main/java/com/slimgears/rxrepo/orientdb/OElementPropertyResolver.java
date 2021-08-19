@@ -6,8 +6,8 @@ import com.slimgears.rxrepo.util.PropertyResolver;
 class OElementPropertyResolver extends AbstractOrientPropertyResolver {
     private final OElement oElement;
 
-    private OElementPropertyResolver(OrientDbSessionProvider dbSessionProvider, OElement oElement) {
-        super(dbSessionProvider);
+    private OElementPropertyResolver(OrientDbReferencedObjectProvider refObjectProvider, OElement oElement) {
+        super(refObjectProvider);
         this.oElement = oElement;
     }
 
@@ -21,7 +21,7 @@ class OElementPropertyResolver extends AbstractOrientPropertyResolver {
         return oElement.getProperty(name);
     }
 
-    static PropertyResolver create(OrientDbSessionProvider dbSessionProvider, OElement oElement) {
-        return new OElementPropertyResolver(dbSessionProvider, oElement).cache();
+    static PropertyResolver create(OrientDbReferencedObjectProvider refObjectProvider, OElement oElement) {
+        return new OElementPropertyResolver(refObjectProvider, oElement).cache();
     }
 }

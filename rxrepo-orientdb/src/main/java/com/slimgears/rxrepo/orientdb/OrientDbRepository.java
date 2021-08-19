@@ -12,6 +12,7 @@ import com.slimgears.rxrepo.query.decorator.*;
 import com.slimgears.rxrepo.query.provider.QueryProvider;
 import com.slimgears.rxrepo.sql.*;
 import com.slimgears.util.stream.Lazy;
+import com.slimgears.util.stream.Safe;
 import io.reactivex.schedulers.Schedulers;
 
 import javax.annotation.Nonnull;
@@ -20,6 +21,9 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 
 public class OrientDbRepository {
@@ -56,6 +60,8 @@ public class OrientDbRepository {
         private final Map<OGlobalConfiguration, Object> customConfig = new HashMap<>();
         private int maxUpdateConnections = 12;
         private int maxQueryConnections = 12;
+        private int cacheSize = 10000;
+        private Duration cacheExpirationTime = Duration.ofMinutes(1);
 
         public final Builder enableBatchSupport() {
             return enableBatchSupport(true);
@@ -90,6 +96,16 @@ public class OrientDbRepository {
 
         public final Builder maxNonHeapMemory(int maxNonHeapMemoryBytes) {
             this.customConfig.put(OGlobalConfiguration.DIRECT_MEMORY_POOL_LIMIT, maxNonHeapMemoryBytes / pageSize);
+            return this;
+        }
+
+        public final Builder cacheSize(int cacheSize) {
+            this.cacheSize = cacheSize;
+            return this;
+        }
+
+        public final Builder cacheExpirationTime(Duration cacheExpirationTime) {
+            this.cacheExpirationTime = cacheExpirationTime;
             return this;
         }
 
@@ -194,9 +210,12 @@ public class OrientDbRepository {
         }
 
         private SqlServiceFactory.Builder<?> serviceFactoryBuilder(OrientDbSessionProvider updateSessionProvider, OrientDbSessionProvider querySessionProvider) {
+            Lazy<OrientDbReferencedObjectProvider> referencedObjectProviderLazy = Lazy.of(() -> OrientDbReferencedObjectProvider.create(querySessionProvider, cacheSize, cacheExpirationTime));
+            Lazy<OrientDbStatementExecutor> statementExecutor = Lazy.of(() -> new OrientDbStatementExecutor(updateSessionProvider, querySessionProvider, referencedObjectProviderLazy.get()));
+
             return DefaultSqlServiceFactory.builder()
                     .schemaProvider(svc -> new OrientDbSqlSchemaGenerator(updateSessionProvider))
-                    .statementExecutor(svc -> OrientDbMappingStatementExecutor.decorate(new OrientDbStatementExecutor(updateSessionProvider, querySessionProvider), svc.keyEncoder()))
+                    .statementExecutor(svc -> OrientDbMappingStatementExecutor.decorate(statementExecutor.get(), svc.keyEncoder()))
                     .expressionGenerator(svc -> OrientDbSqlExpressionGenerator.create(svc.keyEncoder()))
                     .dbNameProvider(Lazy.of(() -> querySessionProvider.session().map(ODatabaseDocument::getName).blockingGet()))
                     .statementProvider(svc -> new OrientDbSqlStatementProvider(
@@ -205,7 +224,7 @@ public class OrientDbRepository {
                             svc.keyEncoder(),
                             svc.dbNameProvider()))
                     .referenceResolver(svc -> new OrientDbSqlReferenceResolver(svc.statementProvider()))
-                    .queryProviderGenerator(svc -> batchSupport ? OrientDbQueryProvider.create(svc, updateSessionProvider) : DefaultSqlQueryProvider.create(svc))
+                    .queryProviderGenerator(svc -> batchSupport ? OrientDbQueryProvider.create(svc, updateSessionProvider, cacheSize, cacheExpirationTime) : DefaultSqlQueryProvider.create(svc))
                     .keyEncoder(DigestKeyEncoder::create);
         }
 
@@ -218,15 +237,20 @@ public class OrientDbRepository {
             Lazy<OrientDB> dbClient = Lazy.of(() -> createClient(url, serverUser, serverPassword, dbName, dbType));
             OrientDbSessionProvider updateSessionProvider = createSessionProvider(dbClient, maxUpdateConnections);
             OrientDbSessionProvider querySessionProvider = createSessionProvider(dbClient, maxQueryConnections);
+            ExecutorService queryResultPool = Executors.newWorkStealingPool(maxQueryConnections);
 
             return serviceFactoryBuilder(updateSessionProvider, querySessionProvider)
-                    .onClose(updateSessionProvider::close, querySessionProvider::close, dbClient::close)
+                    .onClose(Safe.ofRunnable(() -> {
+                        queryResultPool.shutdown();
+                        //noinspection ResultOfMethodCallIgnored
+                        queryResultPool.awaitTermination(2, TimeUnit.SECONDS);
+                    }), updateSessionProvider::close, querySessionProvider::close, dbClient::close)
                     .decorate(
                             BatchUpdateQueryProviderDecorator.create(batchBufferSize),
                             RetryOnConcurrentConflictQueryProviderDecorator.create(Duration.ofMillis(config.retryInitialDurationMillis()), config.retryCount()),
                             OrientDbUpdateReferencesFirstQueryProviderDecorator.create(),
                             LiveQueryProviderDecorator.create(Duration.ofMillis(config.aggregationDebounceTimeMillis())),
-                            ObserveOnSchedulingQueryProviderDecorator.create(Schedulers.io()),
+                            ObserveOnSchedulingQueryProviderDecorator.create(Schedulers.from(queryResultPool)),
                             OrientDbDropDatabaseQueryProviderDecorator.create(dbClient, dbName),
                             SubscribeOnSchedulingQueryProviderDecorator.createDefault(),
                             decorator);

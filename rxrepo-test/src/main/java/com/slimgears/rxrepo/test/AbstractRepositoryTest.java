@@ -1320,7 +1320,7 @@ public abstract class AbstractRepositoryTest {
     public void testLargeUpdate() throws InterruptedException {
         int count = Optional.ofNullable(System.getProperty("test.testLargeUpdate.count"))
                 .map(Integer::valueOf)
-                .orElse(20000);
+                .orElse(100000);
         repository.entities(Product.metaClass).update(Products.createMany(count))
                 .test()
                 .await()
