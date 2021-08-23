@@ -16,6 +16,10 @@ public class Products {
         return createMany(0, count, 10);
     }
 
+    public static Iterable<Product> createMany(int startingId, int count) {
+        return createMany(startingId, count, 10);
+    }
+
     public static Iterable<Product> createMany(int startingId, int count, int inventoriesFactor) {
         final Product.Type[] productTypes = {
                 ProductEntity.Type.ConsumerElectronics,

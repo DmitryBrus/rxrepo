@@ -97,18 +97,16 @@ public abstract class AbstractOrientDbQueryProviderTest extends AbstractReposito
     }
 
     @Test
-    @UseLogLevel(LogLevel.TRACE)
-    public void testLiveQueriesFromMultipleThreads() throws InterruptedException {
+    @UseLogLevel(LogLevel.INFO)
+    public void testLiveQueriesFromMultipleThreads() {
         Observable.range(0, 10)
-                .flatMap(i -> Observable
-                        .range(0, 100)
-                        .flatMap(j -> products.update(Products.createOne(i*100 + j)).ignoreElement().andThen(products.queryAndObserve()))
+                .flatMap(i -> products
+                        .update(Products.createMany(i*10, 10))
+                        .andThen(products.queryAndObserve())
                         .subscribeOn(Schedulers.computation()))
-                .take(2000)
+                .take(200)
                 .test()
-                .await()
-                .assertValueCount(2000)
-                .assertNoErrors();
+                .assertOf(TestUtils.countAtLeast(200, Duration.ofSeconds(60)));
     }
 
     @Test

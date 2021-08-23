@@ -506,9 +506,7 @@ public abstract class AbstractRepositoryTest {
                 .limit(20)
                 .retrieve(Product.$.name, Product.$.inventory)
                 .test()
-                .awaitCount(20)
-                .assertNoErrors()
-                .assertNoTimeout()
+                .assertOf(TestUtils.countAtLeast(20))
                 .assertValueAt(15, pr -> {
                     System.out.println(pr);
                     Matcher matcher = Pattern.compile("Product-([0-9]+) - Inventory-([0-9]+)").matcher(requireNonNull(pr.name()));
@@ -531,7 +529,7 @@ public abstract class AbstractRepositoryTest {
                 .properties(Product.$.inventory.name)
                 .observeAs(Notifications.toList())
                 .test()
-                .awaitCount(1)
+                .assertOf(TestUtils.countAtLeast(1))
                 .assertValue(l -> l.size() == 1)
                 .assertValue(l -> l.get(0).inventory() == null);
     }
@@ -551,8 +549,7 @@ public abstract class AbstractRepositoryTest {
                 .test()
                 .assertSubscribed();
 
-        count.awaitCount(1)
-                .assertValueCount(1)
+        count.assertOf(TestUtils.countExactly(1))
                 .assertValue(10L);
 
         repository.entities(Product.metaClass).deleteAll(Product.$.price.greaterOrEqual(100))
@@ -755,7 +752,7 @@ public abstract class AbstractRepositoryTest {
                 .test();
 
         productObserver
-                .assertOf(countAtLeast(1))
+                .assertOf(awaitCount(1))
                 .assertValueAt(0, Notification::isCreate)
                 .assertValueAt(0, n -> requireNonNull(n.newValue()).price() == 101);
 
@@ -772,7 +769,7 @@ public abstract class AbstractRepositoryTest {
                 .ignoreElement().blockingAwait();
 
         productObserver
-                .assertOf(countExactly(2))
+                .assertOf(awaitCount(2))
                 .assertValueAt(1, Notification::isCreate)
                 .assertValueAt(1, n -> requireNonNull(n.newValue()).price() == 102);
 
@@ -785,7 +782,7 @@ public abstract class AbstractRepositoryTest {
                 .ignoreElement().blockingAwait();
 
         productObserver
-                .assertOf(countExactly(3))
+                .assertOf(awaitCount(3))
                 .assertValueAt(2, NotificationPrototype::isDelete)
                 .assertValueAt(2, n -> requireNonNull(n.oldValue()).price() == 101);
 
@@ -810,7 +807,7 @@ public abstract class AbstractRepositoryTest {
                 .doOnNext(System.out::println)
                 .toList()
                 .test()
-                .awaitCount(1)
+                .assertOf(TestUtils.countAtLeast(1))
                 .assertValue(l -> l.size() == 2)
                 .assertValue(l -> l.contains("Inventory-0"));
 
@@ -819,7 +816,7 @@ public abstract class AbstractRepositoryTest {
                 .retrieve(Inventory.$.name)
                 .toList()
                 .test()
-                .awaitCount(1)
+                .assertOf(TestUtils.countAtLeast(1))
                 .assertValue(l -> l.size() == 2);
     }
 
@@ -894,8 +891,8 @@ public abstract class AbstractRepositoryTest {
 
     @Test @Ignore
     public void testObserveAsListEmptyCollection() {
-        products.query().observeAsList().test().awaitCount(1)
-                .assertValueCount(1)
+        products.query().observeAsList().test()
+                .assertOf(TestUtils.countExactly(1))
                 .assertValue(List::isEmpty);
 
         products.update(Products.createOne(1)).ignoreElement().blockingAwait();
@@ -906,14 +903,13 @@ public abstract class AbstractRepositoryTest {
                 .test()
                 .assertSubscribed();
 
-        productObserver.awaitCount(1)
-                .assertNoErrors()
-                .assertValueCount(1)
+        productObserver
+                .assertOf(TestUtils.countExactly(1))
                 .assertValue(List::isEmpty);
 
         products.update(Products.createOne(2)).ignoreElement().blockingAwait();
-        productObserver.awaitCount(2)
-                .assertValueCount(2)
+        productObserver
+                .assertOf(TestUtils.countExactly(2))
                 .assertValueAt(1, l -> l.size() == 1);
 
         products.update(Products.createOne(3)).ignoreElement().blockingAwait();
@@ -923,8 +919,7 @@ public abstract class AbstractRepositoryTest {
                 .limit(2)
                 .observeAsList()
                 .test()
-                .awaitCount(1)
-                .assertValueCount(1)
+                .assertOf(TestUtils.countExactly(1))
                 .assertValue(l -> l.size() == 1)
                 .assertValue(l -> l.get(0).key().id() == 3);
     }
@@ -1098,9 +1093,7 @@ public abstract class AbstractRepositoryTest {
     public void testLiveQueryWithProjection() throws InterruptedException {
         repository.entities(Product.metaClass)
                 .update(Products.createMany(10))
-                .test()
-                .awaitCount(10)
-                .assertNoErrors();
+                .blockingAwait();
 
         TestObserver<Notification<Product>> productNameChanges = repository
                 .entities(Product.metaClass)
@@ -1203,7 +1196,7 @@ public abstract class AbstractRepositoryTest {
     }
 
     @Test
-    public void testLiveAggregateWithMapping() {
+    public void testLiveAggregateWithMapping() throws InterruptedException {
         TestObserver<Long> inventoriesObserver = repository.entities(Product.metaClass)
                 .query()
                 .map(Product.$.inventory)
@@ -1215,13 +1208,10 @@ public abstract class AbstractRepositoryTest {
         repository.entities(Product.metaClass)
                 .update(Products.createMany(10))
                 .test()
-                .awaitCount(10)
-                .assertNoErrors();
+                .await(10, TimeUnit.SECONDS);
 
         inventoriesObserver
-                .assertOf(countAtLeast(1))
-                .assertNoTimeout()
-                .assertNoErrors();
+                .assertOf(countAtLeast(1));
     }
 
     @SuppressWarnings("ConstantConditions")
@@ -1258,7 +1248,8 @@ public abstract class AbstractRepositoryTest {
                 .ignoreElement()
                 .blockingAwait();
 
-        productObserver.awaitCount(1)
+        productObserver
+                .assertOf(TestUtils.countExactly(1))
                 .assertValueAt(0, NotificationPrototype::isModify)
                 .assertValueAt(0, p -> p.oldValue().name().equals("Product-1"))
                 .assertValueAt(0, p -> p.newValue().name().equals("Product-1 - Updated"));
@@ -1273,7 +1264,8 @@ public abstract class AbstractRepositoryTest {
                 .ignoreElement()
                 .blockingAwait();
 
-        productObserver.awaitCount(2)
+        productObserver
+                .assertOf(TestUtils.countAtLeast(2))
                 .assertValueAt(1, NotificationPrototype::isModify)
                 .assertValueAt(1, p -> p.newValue().productionDate().getTime() - p.oldValue().productionDate().getTime() == 1);
     }
@@ -1332,7 +1324,7 @@ public abstract class AbstractRepositoryTest {
 
     @Test
     @UseLogLevel(LogLevel.DEBUG)
-    public void testLargeUpdateNoReferences() throws InterruptedException {
+    public void testLargeUpdateNoReferences() {
         Iterable<Product> products = Products.createMany(20000);
         Iterable<Inventory> inventories = Streams
                 .fromIterable(products)
@@ -1395,8 +1387,8 @@ public abstract class AbstractRepositoryTest {
                 .test()
                 .assertSubscribed();
 
-        testObserver.awaitCount(1)
-                .assertValueCount(1)
+        testObserver
+                .assertOf(TestUtils.countExactly(1))
                 .assertValueAt(0, 0L);
 
         repository.entities(Product.metaClass).update(Products.createOne(2)).ignoreElement().blockingAwait();
@@ -1537,14 +1529,13 @@ public abstract class AbstractRepositoryTest {
                 .test();
 
         products.update(Products.createOne(0)).ignoreElement().blockingAwait();
-        testObserver.awaitCount(1)
-                .assertValueCount(1)
+        testObserver
+                .assertOf(TestUtils.countExactly(1))
                 .assertValueAt(0, NotificationPrototype::isCreate);
 
         products.update(Products.createOne(0).toBuilder().name("Product Zero").build()).ignoreElement().blockingAwait();
         testObserver
-                .awaitCount(2)
-                .assertValueCount(2)
+                .assertOf(TestUtils.countExactly(2))
                 .assertValueAt(1, NotificationPrototype::isDelete);
     }
 
@@ -1569,8 +1560,8 @@ public abstract class AbstractRepositoryTest {
                 .doOnNext(System.out::println)
                 .test();
 
-        testObserver.awaitCount(100)
-                .assertValueCount(100);
+        testObserver.assertOf(TestUtils.countExactly(100));
+
 
         repository.entities(Inventory.metaClass)
                 .update(Inventory.builder()
@@ -1580,8 +1571,8 @@ public abstract class AbstractRepositoryTest {
                 .ignoreElement()
                 .blockingAwait();
 
-        testObserver.awaitCount(110)
-                .assertValueCount(110)
+        testObserver
+                .assertOf(TestUtils.countExactly(110))
                 .assertValueAt(100, NotificationPrototype::isModify)
                 .assertValueAt(100, n -> n.oldValue().inventory() != null && n.newValue().inventory() != null)
                 .assertValueAt(100, n -> !Objects.equals(n.oldValue().inventory(), n.newValue().inventory()))
@@ -1601,8 +1592,7 @@ public abstract class AbstractRepositoryTest {
                 .doOnNext(System.out::println)
                 .test();
 
-        testObserver.awaitCount(count)
-                .assertValueCount(count);
+        testObserver.assertOf(TestUtils.countExactly(count));
 
         repository.entities(Inventory.metaClass)
                 .update(Inventory.builder()
@@ -1612,8 +1602,7 @@ public abstract class AbstractRepositoryTest {
                 .ignoreElement()
                 .blockingAwait();
 
-        testObserver.awaitCount(count * 2)
-                .assertValueCount(count * 2)
+        testObserver.assertOf(TestUtils.countExactly(count * 2))
                 .assertValueAt(count, NotificationPrototype::isModify)
                 .assertValueAt(count, n -> n.oldValue().inventory() != null && n.newValue().inventory() != null)
                 .assertValueAt(count, n -> !Objects.equals(n.oldValue().inventory(), n.newValue().inventory()))

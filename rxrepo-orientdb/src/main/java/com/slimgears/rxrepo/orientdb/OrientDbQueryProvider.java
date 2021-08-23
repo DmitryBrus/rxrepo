@@ -1,7 +1,6 @@
 package com.slimgears.rxrepo.orientdb;
 
 import com.google.common.base.Stopwatch;
-import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -9,11 +8,11 @@ import com.google.common.collect.HashBasedTable;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Table;
 import com.orientechnologies.orient.core.db.document.ODatabaseDocument;
-import com.orientechnologies.orient.core.exception.OCommandExecutionException;
 import com.orientechnologies.orient.core.exception.OConcurrentModificationException;
 import com.orientechnologies.orient.core.id.ORID;
 import com.orientechnologies.orient.core.intent.OIntent;
 import com.orientechnologies.orient.core.intent.OIntentMassiveInsert;
+import com.orientechnologies.orient.core.metadata.schema.OSchema;
 import com.orientechnologies.orient.core.metadata.sequence.OSequence;
 import com.orientechnologies.orient.core.record.OElement;
 import com.orientechnologies.orient.core.sql.executor.OResultSet;
@@ -27,7 +26,6 @@ import com.slimgears.util.autovalue.annotations.HasMetaClassWithKey;
 import com.slimgears.util.autovalue.annotations.MetaClass;
 import com.slimgears.util.autovalue.annotations.MetaClassWithKey;
 import com.slimgears.util.generic.MoreStrings;
-import com.slimgears.util.rx.Completables;
 import com.slimgears.util.stream.Optionals;
 import com.slimgears.util.stream.Streams;
 import io.reactivex.Completable;
@@ -119,13 +117,17 @@ public class OrientDbQueryProvider extends DefaultSqlQueryProvider {
 
         return schemaGenerator.useTable(metaClass)
                 .andThen(sessionProvider.completeWithSession(session -> createAndSaveElements(session, metaClass, entities, recursive)))
-                // W/A for schema race condition:
-                // com.orientechnologies.orient.core.exception.OCommandExecutionException: Class <...> already exists
-                .compose(Completables.backOffDelayRetry(e -> e instanceof OCommandExecutionException, Duration.ofMillis(10), 5))
                 .doOnComplete(() -> log.trace("Total insert time: {}s", stopwatch.elapsed(TimeUnit.SECONDS)));
     }
 
     private <S> void createAndSaveElements(ODatabaseDocument dbSession, MetaClass<S> metaClass, Iterable<S> entities, boolean recursive) {
+        OSchema schema = dbSession.getMetadata().getSchema();
+        schema.reload();
+
+        if (!schema.existsClass(metaClass.simpleName())) {
+            throw new IllegalStateException(MoreStrings.format("Class {} not found", metaClass.simpleName()));
+        }
+
         AtomicLong seqNum = new AtomicLong();
         OIntent previousIntent = dbSession.getActiveIntent();
         try {
