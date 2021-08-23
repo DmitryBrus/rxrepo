@@ -1,5 +1,6 @@
 package com.slimgears.rxrepo.sql;
 
+import com.slimgears.nanometer.MetricCollector;
 import com.slimgears.rxrepo.query.Repository;
 import com.slimgears.rxrepo.query.RepositoryConfigModel;
 import com.slimgears.rxrepo.query.provider.QueryProvider;
@@ -20,6 +21,7 @@ public interface SqlServiceFactory {
     KeyEncoder keyEncoder();
     SqlTypeMapper typeMapper();
     Supplier<String> dbNameProvider();
+    MetricCollector metricCollector();
 
     abstract class Builder<B extends Builder<B>> {
         private QueryProvider.Decorator decorator = QueryProvider.Decorator.identity();
@@ -38,6 +40,8 @@ public interface SqlServiceFactory {
                 factory.statementExecutor(),
                 factory.schemaProvider(),
                 factory.referenceResolver());
+        protected Function<SqlServiceFactory, MetricCollector> metricCollector = f -> MetricCollector.empty();
+
         private Runnable onClose = () -> {};
 
         @SuppressWarnings("unchecked")
@@ -165,6 +169,15 @@ public interface SqlServiceFactory {
 
         public B dbNameProvider(Supplier<String> dbNameProvider) {
             return dbNameProvider(f -> dbNameProvider);
+        }
+
+        public B metricCollector(MetricCollector metricCollector) {
+            return metricCollector(() -> metricCollector);
+        }
+
+        public B metricCollector(Supplier<MetricCollector> metricCollector) {
+            this.metricCollector = f -> metricCollector.get();
+            return self();
         }
     }
 }

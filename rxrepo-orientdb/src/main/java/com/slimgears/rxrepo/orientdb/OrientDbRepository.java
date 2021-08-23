@@ -37,7 +37,7 @@ public class OrientDbRepository {
     }
 
     public static class Builder extends AbstractSqlRepositoryBuilder<Builder> {
-        private final static int pageSize = 64 * 1024;
+        private final static long pageSize = 64 * 1024;
         private final static Object lock = new Object();
         private final static ImmutableMap<Type, ODatabaseType> dbTypeMap = ImmutableMap
                 .<Type, ODatabaseType>builder()
@@ -56,12 +56,13 @@ public class OrientDbRepository {
         private int batchBufferSize = 2000;
         private QueryProvider.Decorator decorator = QueryProvider.Decorator.identity();
         private Function<Executor, Executor> executorDecorator = Function.identity();
+        private SqlStatementExecutor.Decorator sqlExecutorDecorator = SqlStatementExecutor.Decorator.identity();
 
         private final Map<OGlobalConfiguration, Object> customConfig = new HashMap<>();
         private int maxUpdateConnections = 12;
         private int maxQueryConnections = 12;
-        private int cacheSize = 10000;
-        private Duration cacheExpirationTime = Duration.ofMinutes(1);
+        private Duration cacheExpirationTime = Duration.ofMinutes(2);
+        private MetricCollector metricCollector = MetricCollector.empty();
 
         public final Builder enableBatchSupport() {
             return enableBatchSupport(true);
@@ -94,13 +95,8 @@ public class OrientDbRepository {
             return this;
         }
 
-        public final Builder maxNonHeapMemory(int maxNonHeapMemoryBytes) {
+        public final Builder maxNonHeapMemory(long maxNonHeapMemoryBytes) {
             this.customConfig.put(OGlobalConfiguration.DIRECT_MEMORY_POOL_LIMIT, maxNonHeapMemoryBytes / pageSize);
-            return this;
-        }
-
-        public final Builder cacheSize(int cacheSize) {
-            this.cacheSize = cacheSize;
             return this;
         }
 
@@ -203,19 +199,23 @@ public class OrientDbRepository {
         }
 
         public Builder enableMetrics(MetricCollector metricCollector) {
+            metricCollector = metricCollector.name("rxrepo.orientdb");
             MetricsQueryProviderDecorator decorator = MetricsQueryProviderDecorator.create(metricCollector);
             decorate(decorator);
             decorateExecutor(decorator.executorDecorator());
+            sqlExecutorDecorator = sqlExecutorDecorator.andThen(MetricsSqlStatementExecutorDecorator.create(metricCollector));
+            this.metricCollector = metricCollector;
             return this;
         }
 
         private SqlServiceFactory.Builder<?> serviceFactoryBuilder(OrientDbSessionProvider updateSessionProvider, OrientDbSessionProvider querySessionProvider) {
-            Lazy<OrientDbReferencedObjectProvider> referencedObjectProviderLazy = Lazy.of(() -> OrientDbReferencedObjectProvider.create(querySessionProvider, cacheSize, cacheExpirationTime));
+            Lazy<OrientDbReferencedObjectProvider> referencedObjectProviderLazy = Lazy.of(() -> OrientDbReferencedObjectProvider.create(querySessionProvider, cacheExpirationTime));
             Lazy<OrientDbStatementExecutor> statementExecutor = Lazy.of(() -> new OrientDbStatementExecutor(updateSessionProvider, querySessionProvider, referencedObjectProviderLazy.get()));
 
             return DefaultSqlServiceFactory.builder()
+                    .metricCollector(metricCollector)
                     .schemaProvider(svc -> new OrientDbSqlSchemaGenerator(updateSessionProvider))
-                    .statementExecutor(svc -> OrientDbMappingStatementExecutor.decorate(statementExecutor.get(), svc.keyEncoder()))
+                    .statementExecutor(svc -> sqlExecutorDecorator.andThen(OrientDbMappingStatementExecutor.Decorator.create(svc.keyEncoder())).apply(statementExecutor.get()))
                     .expressionGenerator(svc -> OrientDbSqlExpressionGenerator.create(svc.keyEncoder()))
                     .dbNameProvider(Lazy.of(() -> querySessionProvider.session().map(ODatabaseDocument::getName).blockingGet()))
                     .statementProvider(svc -> new OrientDbSqlStatementProvider(
@@ -224,7 +224,7 @@ public class OrientDbRepository {
                             svc.keyEncoder(),
                             svc.dbNameProvider()))
                     .referenceResolver(svc -> new OrientDbSqlReferenceResolver(svc.statementProvider()))
-                    .queryProviderGenerator(svc -> batchSupport ? OrientDbQueryProvider.create(svc, updateSessionProvider, cacheSize, cacheExpirationTime) : DefaultSqlQueryProvider.create(svc))
+                    .queryProviderGenerator(svc -> batchSupport ? OrientDbQueryProvider.create(svc, updateSessionProvider, cacheExpirationTime) : DefaultSqlQueryProvider.create(svc))
                     .keyEncoder(DigestKeyEncoder::create);
         }
 
@@ -251,9 +251,9 @@ public class OrientDbRepository {
                             OrientDbUpdateReferencesFirstQueryProviderDecorator.create(),
                             CacheQueryProviderDecorator.create(),
                             LiveQueryProviderDecorator.create(Duration.ofMillis(config.aggregationDebounceTimeMillis())),
-                            ObserveOnSchedulingQueryProviderDecorator.create(Schedulers.from(queryResultPool)),
+                            ObserveOnSchedulingQueryProviderDecorator.create(Schedulers.from(executorDecorator.apply(queryResultPool))),
                             OrientDbDropDatabaseQueryProviderDecorator.create(dbClient, dbName),
-                            SubscribeOnSchedulingQueryProviderDecorator.createDefault(),
+                            SubscribeOnSchedulingQueryProviderDecorator.create(Schedulers.from(executorDecorator.apply(Runnable::run))),
                             decorator);
         }
     }

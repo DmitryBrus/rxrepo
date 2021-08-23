@@ -5,14 +5,12 @@ import com.slimgears.rxrepo.query.decorator.BatchUpdateQueryProviderDecorator;
 import com.slimgears.rxrepo.query.decorator.ObserveOnSchedulingQueryProviderDecorator;
 import com.slimgears.rxrepo.query.decorator.UpdateReferencesFirstQueryProviderDecorator;
 import com.slimgears.rxrepo.sql.*;
-import com.slimgears.util.stream.Safe;
 import io.reactivex.schedulers.Schedulers;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.util.Objects;
 import java.util.concurrent.Callable;
-import java.util.function.Supplier;
 
 public class JdbcRepository {
     public static class Builder<B extends Builder<B>> extends AbstractSqlRepositoryBuilder<B> {

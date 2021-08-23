@@ -4,8 +4,10 @@ import com.google.common.collect.Iterables;
 import com.google.common.reflect.TypeToken;
 import com.orientechnologies.orient.core.db.document.ODatabaseDocument;
 import com.orientechnologies.orient.core.index.ORuntimeKeyIndexDefinition;
+import com.orientechnologies.orient.core.metadata.OMetadata;
 import com.orientechnologies.orient.core.metadata.schema.OClass;
 import com.orientechnologies.orient.core.metadata.schema.OProperty;
+import com.orientechnologies.orient.core.metadata.schema.OSchema;
 import com.orientechnologies.orient.core.metadata.schema.OType;
 import com.orientechnologies.orient.core.metadata.sequence.OSequence;
 import com.orientechnologies.orient.core.metadata.sequence.OSequenceLibrary;
@@ -33,24 +35,27 @@ class OrientDbSqlSchemaGenerator implements SqlSchemaGenerator {
 
     OrientDbSqlSchemaGenerator(OrientDbSessionProvider sessionProvider) {
         this.dbSessionProvider = sessionProvider;
-        this.sequenceCreated = Completable.fromAction(() -> dbSessionProvider.withSession(session -> {
-                OSequenceLibrary sequenceLibrary = session.getMetadata().getSequenceLibrary();
-                Optional
-                        .ofNullable(sequenceLibrary.getSequence(sequenceName))
-                        .orElseGet(() -> sequenceLibrary.createSequence(sequenceName, OSequence.SEQUENCE_TYPE.ORDERED, new OSequence.CreateParams()))
-                        .save();
-            })).cache();
+//        this.sequenceCreated = dbSessionProvider.completeWithSession(this::createSequence).cache();
+        this.sequenceCreated = Completable.fromAction(() -> dbSessionProvider.withSession(this::createSequence)).cache();
+    }
+
+    private void createSequence(ODatabaseDocument session) {
+        OSequenceLibrary sequenceLibrary = session.getMetadata().getSequenceLibrary();
+        Optional
+                .ofNullable(sequenceLibrary.getSequence(sequenceName))
+                .orElseGet(() -> sequenceLibrary.createSequence(sequenceName, OSequence.SEQUENCE_TYPE.ORDERED, new OSequence.CreateParams()))
+                .save();
     }
 
     @Override
     public Completable createDatabase() {
-        return Completable.complete();
+        return this.sequenceCreated;
     }
 
     @Override
     public <K, T> Completable createOrUpdate(MetaClassWithKey<K, T> metaClass) {
 //        return sequenceCreated.concatWith(dbSessionProvider.completeWithSession(dbSession -> createClass(dbSession, metaClass)));
-        return sequenceCreated.concatWith(Completable.fromAction(() -> dbSessionProvider.withSession(session -> createClass(session, metaClass))));
+        return createDatabase().concatWith(Completable.fromAction(() -> dbSessionProvider.withSession(session -> createClass(session, metaClass))));
     }
 
     @Override
@@ -60,9 +65,14 @@ class OrientDbSqlSchemaGenerator implements SqlSchemaGenerator {
 
     @SuppressWarnings("rawtypes")
     private OClass createClass(ODatabaseDocument dbSession, MetaClass<?> metaClass) {
+        OMetadata metadata = dbSession.getMetadata();
+        OSchema schema = metadata.getSchema();
+        schema.reload();
+
         String className = toClassName(metaClass);
         log.debug("Creating class: {}", className);
-        OClass oClass = dbSession.createClassIfNotExist(className);
+
+        OClass oClass = schema.getOrCreateClass(className);
 
         int count = Iterables.size(metaClass.properties());
         if (count > 5) {
@@ -86,13 +96,10 @@ class OrientDbSqlSchemaGenerator implements SqlSchemaGenerator {
             OType oType = toOType(metaClassWithKey.keyProperty().type());
             if (oType.isLink()) {
                 log.trace("{}: Adding reference key index", className);
-                dbSession.getMetadata().getIndexManager().createIndex(
-                        className + "." + metaClassWithKey.keyProperty().name() + "Index",
-                        OClass.INDEX_TYPE.UNIQUE_HASH_INDEX.name(),
-                        new ORuntimeKeyIndexDefinition<>(OLinkSerializer.ID),
-                        null,
-                        null,
-                        null);
+                String indexName = className + "." + metaClassWithKey.keyProperty().name() + "Index";
+                if (!metadata.getIndexManager().existsIndex(indexName)) {
+                    oClass.createIndex(indexName, OClass.INDEX_TYPE.UNIQUE_HASH_INDEX, metaClassWithKey.keyProperty().name() + "AsString");
+                }
             } else {
                 log.trace("{}: Adding simple key index", className);
                 addIndex(oClass, metaClassWithKey.keyProperty(), true);

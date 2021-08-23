@@ -95,7 +95,7 @@ class OrientDbSessionProvider implements AutoCloseable {
     }
 
     Completable completeWithSession(io.reactivex.functions.Consumer<ODatabaseDocument> action) {
-        return session().flatMapCompletable(session -> Completable.fromAction(() -> action.accept(session)));
+        return session().doOnSuccess(action).ignoreElement();
     }
 
     @Override

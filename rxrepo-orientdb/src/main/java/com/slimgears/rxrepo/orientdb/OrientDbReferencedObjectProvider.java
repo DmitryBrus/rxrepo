@@ -1,8 +1,6 @@
 package com.slimgears.rxrepo.orientdb;
 
-import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.RemovalListener;
+import com.google.common.cache.*;
 import com.orientechnologies.common.exception.OException;
 import com.orientechnologies.orient.core.db.OLiveQueryMonitor;
 import com.orientechnologies.orient.core.db.OLiveQueryResultListener;
@@ -21,7 +19,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class OrientDbReferencedObjectProvider {
-    private final Cache<ORID, PropertyResolver> propertyResolverCache;
+    private final LoadingCache<ORID, PropertyResolver> propertyResolverCache;
 
     private final OrientDbSessionProvider querySessionProvider;
     private final Map<String, Listener> listenerByClassMap = new ConcurrentHashMap<>();
@@ -75,19 +73,18 @@ public class OrientDbReferencedObjectProvider {
         }
     }
 
-    private OrientDbReferencedObjectProvider(OrientDbSessionProvider querySessionProvider, int cacheSize, Duration cacheExpirationTime) {
+    private OrientDbReferencedObjectProvider(OrientDbSessionProvider querySessionProvider, Duration cacheExpirationTime) {
         this.querySessionProvider = querySessionProvider;
         this.propertyResolverCache = CacheBuilder
                 .newBuilder()
-                .initialCapacity(cacheSize)
                 .expireAfterAccess(cacheExpirationTime)
                 .concurrencyLevel(10)
                 .removalListener((RemovalListener<ORID, PropertyResolver>) notification -> removeListener(notification.getKey()))
-                .build();
+                .build(CacheLoader.from(this::retrieve));
     }
 
-    public static OrientDbReferencedObjectProvider create(OrientDbSessionProvider querySessionProvider, int cacheSize, Duration cacheExpirationTime) {
-        return new OrientDbReferencedObjectProvider(querySessionProvider, cacheSize, cacheExpirationTime);
+    public static OrientDbReferencedObjectProvider create(OrientDbSessionProvider querySessionProvider, Duration cacheExpirationTime) {
+        return new OrientDbReferencedObjectProvider(querySessionProvider, cacheExpirationTime);
     }
 
     private void addListener(ORID orid, String className) {

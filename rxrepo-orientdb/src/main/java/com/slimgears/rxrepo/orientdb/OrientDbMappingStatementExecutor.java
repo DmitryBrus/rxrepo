@@ -21,6 +21,23 @@ public class OrientDbMappingStatementExecutor implements SqlStatementExecutor {
         this.objectConverter = objectConverter;
     }
 
+    public static class Decorator implements SqlStatementExecutor.Decorator {
+        private final KeyEncoder keyEncoder;
+
+        private Decorator(KeyEncoder keyEncoder) {
+            this.keyEncoder = keyEncoder;
+        }
+
+        public static Decorator create(KeyEncoder keyEncoder) {
+            return new Decorator(keyEncoder);
+        }
+
+        @Override
+        public SqlStatementExecutor apply(SqlStatementExecutor executor) {
+            return OrientDbMappingStatementExecutor.decorate(executor, keyEncoder);
+        }
+    }
+
     static SqlStatementExecutor decorate(SqlStatementExecutor executor, KeyEncoder keyEncoder) {
         return new OrientDbMappingStatementExecutor(executor, OrientDbObjectConverter.create(keyEncoder));
     }

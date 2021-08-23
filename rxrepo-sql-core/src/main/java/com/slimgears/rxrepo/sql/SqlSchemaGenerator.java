@@ -9,6 +9,8 @@ public interface SqlSchemaGenerator {
     void clear();
 
     default <K, T> Completable useTable(MetaClassWithKey<K, T> metaClass) {
-        return createDatabase().andThen(createOrUpdate(metaClass));
+//        return createDatabase().andThen(createOrUpdate(metaClass));
+        createDatabase().andThen(createOrUpdate(metaClass)).blockingAwait();
+        return Completable.complete();
     }
 }

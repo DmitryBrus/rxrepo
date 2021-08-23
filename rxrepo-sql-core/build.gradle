@@ -5,6 +5,7 @@ dependencies {
     implementation libs.rxJava
     implementation libs.guava
     implementation libs.slf4j
+    implementation libs.slimNanometer
 
     testImplementation libs.slimAutoValueUtilsAnnotations
     testImplementation libs.autoValueAnnotations
