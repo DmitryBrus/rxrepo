@@ -249,7 +249,6 @@ public class OrientDbRepository {
                             BatchUpdateQueryProviderDecorator.create(batchBufferSize),
                             RetryOnConcurrentConflictQueryProviderDecorator.create(Duration.ofMillis(config.retryInitialDurationMillis()), config.retryCount()),
                             OrientDbUpdateReferencesFirstQueryProviderDecorator.create(),
-                            CacheQueryProviderDecorator.create(),
                             LiveQueryProviderDecorator.create(Duration.ofMillis(config.aggregationDebounceTimeMillis())),
                             ObserveOnSchedulingQueryProviderDecorator.create(Schedulers.from(executorDecorator.apply(queryResultPool))),
                             OrientDbDropDatabaseQueryProviderDecorator.create(dbClient, dbName),
