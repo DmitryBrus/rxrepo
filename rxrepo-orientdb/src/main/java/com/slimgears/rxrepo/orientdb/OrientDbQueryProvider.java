@@ -76,6 +76,11 @@ public class OrientDbQueryProvider extends DefaultSqlQueryProvider {
                     Objects.equals(metaClass, ((CacheKey<?, ?>) obj).metaClass) &&
                     Objects.equals(key, ((CacheKey<?, ?>) obj).key);
         }
+
+        @Override
+        public String toString() {
+            return MoreStrings.format("[{}: {}]", metaClass.simpleName(), key);
+        }
     }
 
     OrientDbQueryProvider(SqlServiceFactory serviceFactory,
@@ -155,6 +160,8 @@ public class OrientDbQueryProvider extends DefaultSqlQueryProvider {
                                         () -> {
                                             try {
                                                 return Optional.ofNullable(refCache.get(refKey));
+                                            } catch (CacheLoader.InvalidCacheLoadException e) {
+                                                return Optional.empty();
                                             } catch (ExecutionException e) {
                                                 throw new RuntimeException();
                                             }
@@ -170,7 +177,7 @@ public class OrientDbQueryProvider extends DefaultSqlQueryProvider {
                                                             return element;
                                                         });
                                             } else {
-                                                throw new RuntimeException(MoreStrings.format("Could not find referenced object {}({})", _metaClass.simpleName(), key));
+                                                throw new RuntimeException(MoreStrings.format("Could not find referenced object {}({}) of {}", _metaClass.simpleName(), key, metaClass.simpleName()));
                                             }
                                         })
                                 .orElse(null);

@@ -18,7 +18,7 @@ public class RemoteOrientDbQueryProviderTest extends OrientDbQueryProviderTest {
 
     @ClassRule
     public static TestRule dbContainerRule = DockerRules.container(ContainerConfig.builder()
-                    .waitPolicy(WaitPolicy.busyWaitSeconds(8, RemoteOrientDbQueryProviderTest::isDbAvailable))
+                    .waitPolicy(WaitPolicy.busyWaitSeconds(10, RemoteOrientDbQueryProviderTest::isDbAvailable))
                     .image("orientdb:3.0.38")
                     .containerName("orientdb")
                     .environmentPut("ORIENTDB_ROOT_PASSWORD", "root")

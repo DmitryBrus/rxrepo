@@ -5,6 +5,7 @@ import com.slimgears.rxrepo.util.PropertyMetas;
 import com.slimgears.util.autovalue.annotations.MetaClass;
 import com.slimgears.util.autovalue.annotations.MetaClassWithKey;
 import com.slimgears.util.autovalue.annotations.MetaClasses;
+import com.slimgears.util.stream.Optionals;
 import io.reactivex.Completable;
 import io.reactivex.Maybe;
 import io.reactivex.Observable;
@@ -13,6 +14,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -56,8 +58,14 @@ public class CacheSqlSchemaGeneratorDecorator implements SqlSchemaGenerator {
     private <T> Observable<TypeToken<?>> referencedTypesOf(MetaClass<T> metaClass) {
         return Observable
                 .fromIterable(metaClass.properties())
-                .<TypeToken<?>>flatMapMaybe(property -> PropertyMetas.getReferencedType(property).map(Maybe::just).orElseGet(Maybe::empty))
-                .filter(t -> !Objects.equals(t, metaClass.asType()));
+                .<TypeToken<?>>flatMapMaybe(property -> Optionals.or(
+                        () -> PropertyMetas.getReferencedType(property),
+                        () -> PropertyMetas.isEmbedded(property) && PropertyMetas.isReference(property.type())
+                                ? Optional.of(property.type())
+                                : Optional.empty())
+                        .map(Maybe::just)
+                        .orElseGet(Maybe::empty)
+                .filter(t -> !Objects.equals(t, metaClass.asType())));
     }
 
     @Override
