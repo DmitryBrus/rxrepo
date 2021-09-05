@@ -54,7 +54,8 @@ public class OrientDbRepository {
         private String serverPassword = Optional.ofNullable(System.getenv("ORIENTDB_ROOT_PASSWORD")).orElse("root");
         private boolean batchSupport = false;
         private int batchBufferSize = 2000;
-        private QueryProvider.Decorator decorator = QueryProvider.Decorator.identity();
+        private QueryProvider.Decorator preDecorator = QueryProvider.Decorator.identity();
+        private QueryProvider.Decorator postDecorator = QueryProvider.Decorator.identity();
         private Function<Executor, Executor> executorDecorator = Function.identity();
         private SqlStatementExecutor.Decorator sqlExecutorDecorator = SqlStatementExecutor.Decorator.identity();
 
@@ -156,7 +157,12 @@ public class OrientDbRepository {
         }
 
         public final Builder decorate(@Nonnull QueryProvider.Decorator... decorators) {
-            this.decorator = this.decorator.andThen(QueryProvider.Decorator.of(decorators));
+            this.postDecorator = this.postDecorator.andThen(QueryProvider.Decorator.of(decorators));
+            return this;
+        }
+
+        public final Builder preDecorate(@Nonnull QueryProvider.Decorator... decorators) {
+            this.preDecorator = QueryProvider.Decorator.of(decorators).andThen(this.preDecorator);
             return this;
         }
 
@@ -243,9 +249,10 @@ public class OrientDbRepository {
                     .onClose(Safe.ofRunnable(() -> {
                         queryResultPool.shutdown();
                         //noinspection ResultOfMethodCallIgnored
-                        queryResultPool.awaitTermination(2, TimeUnit.SECONDS);
+                        queryResultPool.awaitTermination(5, TimeUnit.SECONDS);
                     }), updateSessionProvider::close, querySessionProvider::close, dbClient::close)
                     .decorate(
+                            preDecorator,
                             BatchUpdateQueryProviderDecorator.create(batchBufferSize),
                             RetryOnConcurrentConflictQueryProviderDecorator.create(Duration.ofMillis(config.retryInitialDurationMillis()), config.retryCount()),
                             OrientDbUpdateReferencesFirstQueryProviderDecorator.create(),
@@ -253,7 +260,7 @@ public class OrientDbRepository {
                             ObserveOnSchedulingQueryProviderDecorator.create(Schedulers.from(executorDecorator.apply(queryResultPool))),
                             OrientDbDropDatabaseQueryProviderDecorator.create(dbClient, dbName),
                             SubscribeOnSchedulingQueryProviderDecorator.create(Schedulers.from(executorDecorator.apply(Runnable::run))),
-                            decorator);
+                            postDecorator);
         }
     }
 }
