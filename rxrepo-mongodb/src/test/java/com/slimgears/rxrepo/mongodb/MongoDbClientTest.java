@@ -24,6 +24,7 @@ import static com.slimgears.rxrepo.test.Products.createMany;
 import static com.slimgears.rxrepo.test.Products.createOne;
 import static com.slimgears.rxrepo.test.TestUtils.countExactly;
 
+@Ignore
 public class MongoDbClientTest {
     private static AutoCloseable mongoProcess;
     private MongoClient mongoClient;
