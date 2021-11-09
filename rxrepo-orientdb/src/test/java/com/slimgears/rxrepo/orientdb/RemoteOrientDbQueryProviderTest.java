@@ -11,7 +11,9 @@ import org.junit.BeforeClass;
 import org.junit.ClassRule;
 import org.junit.rules.TestRule;
 
+import java.io.IOException;
 import java.util.List;
+import java.util.Optional;
 
 public class RemoteOrientDbQueryProviderTest extends OrientDbQueryProviderTest {
     private static final String dbUrl = "remote:localhost/db";
@@ -19,22 +21,22 @@ public class RemoteOrientDbQueryProviderTest extends OrientDbQueryProviderTest {
     @ClassRule
     public static TestRule dbContainerRule = DockerRules.container(ContainerConfig.builder()
                     .waitPolicy(WaitPolicy.busyWaitSeconds(10, RemoteOrientDbQueryProviderTest::isDbAvailable))
-                    .image("orientdb:3.0.38")
+                    .image("orientdb:" + Optional.ofNullable(System.getProperty("orientDbVer")).orElse("3.0.38"))
                     .containerName("orientdb")
                     .environmentPut("ORIENTDB_ROOT_PASSWORD", "root")
-                    .commandAdd("/orientdb/bin/server.sh", "-Dstorage.useWAL=false", "-Dtx.useLog=false")
+                    .commandAdd("/orientdb/bin/server.sh", "-Dstorage.useWAL=false", "-Dtx.useLog=false", "-Dscript.polyglot.useGraal=false")
                     .portsPut(2424, 2424)
                     .portsPut(2480, 2480)
                     .build());
 
     @BeforeClass
-    public static void setUpClass() {
+    public static void setUpClass() throws IOException {
         Assume.assumeTrue(isDbAvailable());
+        AbstractOrientDbQueryProviderTest.setUpClass();
     }
 
     private static boolean isDbAvailable() {
         try {
-
             OrientDB client = new OrientDB(dbUrl, "root", "root", OrientDBConfig.defaultConfig());
             List<String> dbs = client.list();
             return true;
