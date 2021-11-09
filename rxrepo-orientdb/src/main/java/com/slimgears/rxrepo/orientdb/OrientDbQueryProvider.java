@@ -255,7 +255,12 @@ public class OrientDbQueryProvider extends DefaultSqlQueryProvider {
     }
 
     private <K, S> ORID queryReference(CacheKey<K, S> cacheKey) {
-        return sessionProvider.getWithSession(session -> queryReference(cacheKey.metaClass, cacheKey.key, session)).orElse(null);
+        return sessionProvider
+                .getWithSession(session -> queryReference(cacheKey.metaClass, cacheKey.key, session))
+                .orElseThrow(() -> {
+                    log.error("Could not find reference of {}[{}]", cacheKey.metaClass.simpleName(), cacheKey.key);
+                    return new IllegalStateException(MoreStrings.format("Cannot find reference of {}[{}]", cacheKey.metaClass.simpleName(), cacheKey.key));
+                });
     }
 
     @Override
