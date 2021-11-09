@@ -24,7 +24,7 @@ public class RemoteOrientDbQueryProviderTest extends OrientDbQueryProviderTest {
                     .image("orientdb:" + Optional.ofNullable(System.getProperty("orientDbVer")).orElse("3.0.38"))
                     .containerName("orientdb")
                     .environmentPut("ORIENTDB_ROOT_PASSWORD", "root")
-                    .commandAdd("/orientdb/bin/server.sh", "-Dstorage.useWAL=false", "-Dtx.useLog=false", "-Dscript.polyglot.useGraal=false")
+                    .commandAdd("/orientdb/bin/server.sh", "-Dstorage.useWAL=false", "-Dtx.useLog=false")
                     .portsPut(2424, 2424)
                     .portsPut(2480, 2480)
                     .build());
