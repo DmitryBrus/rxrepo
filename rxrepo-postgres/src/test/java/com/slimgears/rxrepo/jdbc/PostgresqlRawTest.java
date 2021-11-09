@@ -21,6 +21,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
+@Ignore
 @RunWith(AnnotationRulesJUnit.class)
 public class PostgresqlRawTest {
     @ClassRule public static TestRule dbContainerRule = PostgresTestUtils.rule();

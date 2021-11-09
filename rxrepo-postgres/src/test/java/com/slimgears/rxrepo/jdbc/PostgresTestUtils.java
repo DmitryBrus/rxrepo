@@ -4,12 +4,14 @@ import com.slimgears.util.junit.ResourceRules;
 import com.slimgears.util.test.containers.ContainerConfig;
 import com.slimgears.util.test.containers.DockerUtils;
 import com.slimgears.util.test.containers.WaitPolicy;
+import org.junit.Ignore;
 import org.junit.rules.TestRule;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 
+@Ignore
 public class PostgresTestUtils {
     public static final String connectionUrl = "jdbc:postgresql://localhost/test_db?user=root&password=root";
     public static final String schemaName = "repository";
