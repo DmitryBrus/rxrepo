@@ -10,6 +10,9 @@ import com.orientechnologies.orient.core.metadata.schema.OClass;
 import com.orientechnologies.orient.core.record.OElement;
 import com.orientechnologies.orient.core.sql.executor.OResult;
 import com.slimgears.rxrepo.util.PropertyResolver;
+import com.slimgears.util.generic.MoreStrings;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.time.Duration;
 import java.util.Map;
@@ -19,7 +22,8 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class OrientDbReferencedObjectProvider {
-    private final LoadingCache<ORID, PropertyResolver> propertyResolverCache;
+    private final static Logger log = LoggerFactory.getLogger(OrientDbReferencedObjectProvider.class);
+    private final LoadingCache<ORID, Optional<PropertyResolver>> propertyResolverCache;
 
     private final OrientDbSessionProvider querySessionProvider;
     private final Map<String, Listener> listenerByClassMap = new ConcurrentHashMap<>();
@@ -79,8 +83,8 @@ public class OrientDbReferencedObjectProvider {
                 .newBuilder()
                 .expireAfterAccess(cacheExpirationTime)
                 .concurrencyLevel(10)
-                .removalListener((RemovalListener<ORID, PropertyResolver>) notification -> removeListener(notification.getKey()))
-                .build(CacheLoader.from(this::retrieve));
+                .removalListener((RemovalListener<ORID, Optional<PropertyResolver>>) notification -> removeListener(notification.getKey()))
+                .build(CacheLoader.from(this::load));
     }
 
     public static OrientDbReferencedObjectProvider create(OrientDbSessionProvider querySessionProvider, Duration cacheExpirationTime) {
@@ -96,13 +100,22 @@ public class OrientDbReferencedObjectProvider {
         Optional.ofNullable(listenerByORID.remove(orid)).ifPresent(Listener::release);
     }
 
+    private Optional<PropertyResolver> load(ORID id) {
+        return Optional
+                .ofNullable(querySessionProvider.<OElement>getWithSession(s -> s.load(id)))
+                .map(e -> {
+                    e.getSchemaType().map(OClass::getName).ifPresent(n -> addListener(id, n));
+                    return OElementPropertyResolver.create(this, e).cache();
+                });
+    }
+
     public PropertyResolver retrieve(ORID id) {
         try {
-            return propertyResolverCache.get(id, () -> {
-                OElement element = querySessionProvider.getWithSession(s -> s.load(id));
-                element.getSchemaType().map(OClass::getName).ifPresent(n -> addListener(id, n));
-                return OElementPropertyResolver.create(this, element).cache();
-            });
+            return propertyResolverCache.get(id)
+                    .orElseGet(() -> {
+                        log.warn("Could not find reference to {}", id);
+                        return null;
+                    });
         } catch (ExecutionException e) {
             throw new RuntimeException(e);
         }
