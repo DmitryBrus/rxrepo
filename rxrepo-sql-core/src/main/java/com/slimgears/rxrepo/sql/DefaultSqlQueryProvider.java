@@ -104,7 +104,7 @@ public class DefaultSqlQueryProvider implements QueryProvider {
     }
 
     private <K, S> Maybe<Supplier<S>> updatePropertyResolver(MetaClassWithKey<K, S> metaClass, PropertyResolver propertyResolver) {
-        return insertOrUpdateStatement(metaClass, statementProvider.forInsertOrUpdate(metaClass, propertyResolver, referenceResolver));
+        return insertOrUpdateStatement(metaClass, statementProvider.forUpdate(metaClass, propertyResolver, referenceResolver));
     }
 
     private <K, S> Completable insertOrUpdatePropertyResolvers(MetaClassWithKey<K, S> metaClass, Stream<PropertyResolver> propertyResolvers) {

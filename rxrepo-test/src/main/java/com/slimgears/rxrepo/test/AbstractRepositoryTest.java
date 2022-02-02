@@ -353,6 +353,29 @@ public abstract class AbstractRepositoryTest {
     }
 
     @Test
+    @UseLogLevel(LogLevel.TRACE)
+    public void testAtomicUpdateAfterDelete() throws InterruptedException {
+        EntitySet<UniqueId, Product> productSet = repository.entities(Product.metaClass);
+        CompletableSubject trigger1 = CompletableSubject.create();
+
+        productSet.update(Products.createMany(1)).test().await().assertNoErrors();
+
+        TestObserver<Supplier<Product>> prodUpdateTester1 = productSet
+                .update(UniqueId.productId(0), prod -> prod
+                        .flatMap(p -> Maybe.just(p.toBuilder().name(p.name() + " Updated name #1").build())
+                                .delay(trigger1.toFlowable())))
+                .test();
+
+        Thread.sleep(500);
+        productSet.delete(UniqueId.productId(0)).blockingAwait();
+
+        trigger1.onComplete();
+        prodUpdateTester1.await().assertNoErrors();
+
+        Assert.assertEquals(Long.valueOf(0), productSet.query().count().blockingGet());
+    }
+
+    @Test
     //@UseLogLevel(UseLogLevel.Level.FINEST)
     public void testFilteredAtomicUpdate() throws InterruptedException {
         EntitySet<UniqueId, Product> productSet = repository.entities(Product.metaClass);
