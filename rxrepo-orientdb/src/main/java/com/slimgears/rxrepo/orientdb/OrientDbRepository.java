@@ -64,9 +64,15 @@ public class OrientDbRepository {
         private int maxQueryConnections = 12;
         private Duration cacheExpirationTime = Duration.ofMinutes(2);
         private MetricCollector metricCollector = MetricCollector.empty();
+        private OrientDbProvider orientDbProvider;
 
         public final Builder enableBatchSupport() {
             return enableBatchSupport(true);
+        }
+
+        public Builder orientDbProvider(OrientDbProvider orientDbProvider) {
+            this.orientDbProvider = orientDbProvider;
+            return this;
         }
 
         public final Builder enableBatchSupport(boolean enable) {
@@ -171,7 +177,10 @@ public class OrientDbRepository {
                     .fromGlobalMap(customConfig)
                     .build();
 
-            OrientDB client = new OrientDB(url, serverUser, serverPassword, config);
+            orientDbProvider = Optional.ofNullable(orientDbProvider)
+                    .orElseGet(() -> DefaultOrientDbProvider.create(url, serverUser, serverPassword, config));
+
+            OrientDB client = orientDbProvider.acquire();
             if (!client.exists(dbName)) {
                 synchronized (lock) {
                     client.createIfNotExists(dbName, dbType);
@@ -250,7 +259,7 @@ public class OrientDbRepository {
                         queryResultPool.shutdown();
                         //noinspection ResultOfMethodCallIgnored
                         queryResultPool.awaitTermination(5, TimeUnit.SECONDS);
-                    }), updateSessionProvider::close, querySessionProvider::close, dbClient::close)
+                    }), updateSessionProvider::close, querySessionProvider::close, () -> dbClient.ifExists(orientDbProvider::release))
                     .decorate(
                             preDecorator,
                             BatchUpdateQueryProviderDecorator.create(batchBufferSize),
