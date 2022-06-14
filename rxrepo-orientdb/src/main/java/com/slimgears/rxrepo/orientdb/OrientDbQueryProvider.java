@@ -85,7 +85,8 @@ public class OrientDbQueryProvider extends DefaultSqlQueryProvider {
 
     OrientDbQueryProvider(SqlServiceFactory serviceFactory,
                           OrientDbSessionProvider sessionProvider,
-                          Duration cacheExpirationTime) {
+                          Duration cacheExpirationTime,
+                          long cacheMaxSize) {
         super(serviceFactory.statementProvider(),
                 serviceFactory.statementExecutor(),
                 serviceFactory.schemaProvider(),
@@ -95,6 +96,7 @@ public class OrientDbQueryProvider extends DefaultSqlQueryProvider {
         this.metricCollector = serviceFactory.metricCollector().name("provider");
         this.refCache = CacheBuilder.newBuilder()
                 .expireAfterAccess(cacheExpirationTime)
+                .maximumSize(cacheMaxSize)
                 .concurrencyLevel(10)
                 .build(CacheLoader.from(this::queryReference));
     }
@@ -105,11 +107,13 @@ public class OrientDbQueryProvider extends DefaultSqlQueryProvider {
 
     static OrientDbQueryProvider create(SqlServiceFactory serviceFactory,
                                         OrientDbSessionProvider updateSessionProvider,
-                                        Duration cacheExpirationTime) {
+                                        Duration cacheExpirationTime,
+                                        long cacheMaxSize) {
         return new OrientDbQueryProvider(
                 serviceFactory,
                 updateSessionProvider,
-                cacheExpirationTime);
+                cacheExpirationTime,
+                cacheMaxSize);
     }
 
     @Override

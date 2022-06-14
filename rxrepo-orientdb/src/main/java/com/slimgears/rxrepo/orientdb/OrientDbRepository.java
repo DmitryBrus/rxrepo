@@ -63,6 +63,8 @@ public class OrientDbRepository {
         private int maxUpdateConnections = 12;
         private int maxQueryConnections = 12;
         private Duration cacheExpirationTime = Duration.ofMinutes(2);
+
+        private long cacheMaxSize = 1000;
         private MetricCollector metricCollector = MetricCollector.empty();
         private OrientDbProvider orientDbProvider;
 
@@ -109,6 +111,11 @@ public class OrientDbRepository {
 
         public final Builder cacheExpirationTime(Duration cacheExpirationTime) {
             this.cacheExpirationTime = cacheExpirationTime;
+            return this;
+        }
+
+        public final Builder cacheMaxSize(long cacheMaxSize) {
+            this.cacheMaxSize = cacheMaxSize;
             return this;
         }
 
@@ -239,7 +246,7 @@ public class OrientDbRepository {
                             svc.keyEncoder(),
                             svc.dbNameProvider()))
                     .referenceResolver(svc -> new OrientDbSqlReferenceResolver(svc.statementProvider()))
-                    .queryProviderGenerator(svc -> batchSupport ? OrientDbQueryProvider.create(svc, updateSessionProvider, cacheExpirationTime) : DefaultSqlQueryProvider.create(svc))
+                    .queryProviderGenerator(svc -> batchSupport ? OrientDbQueryProvider.create(svc, updateSessionProvider, cacheExpirationTime, cacheMaxSize) : DefaultSqlQueryProvider.create(svc))
                     .keyEncoder(DigestKeyEncoder::create);
         }
 
