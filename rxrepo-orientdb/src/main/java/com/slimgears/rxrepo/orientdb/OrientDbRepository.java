@@ -64,7 +64,7 @@ public class OrientDbRepository {
         private int maxQueryConnections = 12;
         private Duration cacheExpirationTime = Duration.ofMinutes(2);
 
-        private long cacheMaxSize = 1000;
+        private long cacheMaxSize = 25000;
         private MetricCollector metricCollector = MetricCollector.empty();
         private OrientDbProvider orientDbProvider;
 
@@ -231,7 +231,7 @@ public class OrientDbRepository {
         }
 
         private SqlServiceFactory.Builder<?> serviceFactoryBuilder(OrientDbSessionProvider updateSessionProvider, OrientDbSessionProvider querySessionProvider) {
-            Lazy<OrientDbReferencedObjectProvider> referencedObjectProviderLazy = Lazy.of(() -> OrientDbReferencedObjectProvider.create(querySessionProvider, cacheExpirationTime));
+            Lazy<OrientDbReferencedObjectProvider> referencedObjectProviderLazy = Lazy.of(() -> OrientDbReferencedObjectProvider.create(querySessionProvider, cacheExpirationTime, cacheMaxSize));
             Lazy<OrientDbStatementExecutor> statementExecutor = Lazy.of(() -> new OrientDbStatementExecutor(updateSessionProvider, querySessionProvider, referencedObjectProviderLazy.get()));
 
             return DefaultSqlServiceFactory.builder()

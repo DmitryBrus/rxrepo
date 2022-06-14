@@ -77,18 +77,19 @@ public class OrientDbReferencedObjectProvider {
         }
     }
 
-    private OrientDbReferencedObjectProvider(OrientDbSessionProvider querySessionProvider, Duration cacheExpirationTime) {
+    private OrientDbReferencedObjectProvider(OrientDbSessionProvider querySessionProvider, Duration cacheExpirationTime, long cacheMaxSize) {
         this.querySessionProvider = querySessionProvider;
         this.propertyResolverCache = CacheBuilder
                 .newBuilder()
+                .maximumSize(cacheMaxSize)
                 .expireAfterAccess(cacheExpirationTime)
                 .concurrencyLevel(10)
                 .removalListener((RemovalListener<ORID, Optional<PropertyResolver>>) notification -> removeListener(notification.getKey()))
                 .build(CacheLoader.from(this::load));
     }
 
-    public static OrientDbReferencedObjectProvider create(OrientDbSessionProvider querySessionProvider, Duration cacheExpirationTime) {
-        return new OrientDbReferencedObjectProvider(querySessionProvider, cacheExpirationTime);
+    public static OrientDbReferencedObjectProvider create(OrientDbSessionProvider querySessionProvider, Duration cacheExpirationTime, long cacheMaxSize) {
+        return new OrientDbReferencedObjectProvider(querySessionProvider, cacheExpirationTime, cacheMaxSize);
     }
 
     private void addListener(ORID orid, String className) {

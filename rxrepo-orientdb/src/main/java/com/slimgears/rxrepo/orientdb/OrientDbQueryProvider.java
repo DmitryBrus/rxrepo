@@ -177,7 +177,7 @@ public class OrientDbQueryProvider extends DefaultSqlQueryProvider {
                                                         .map(OElement.class::cast)
                                                         .map(element -> {
                                                             element.setProperty(SqlFields.sequenceFieldName, seqNum);
-                                                            cache.put(_metaClass, key, element);
+                                                            //cache.put(_metaClass, key, element);
                                                             return element;
                                                         });
                                             } else {
@@ -229,7 +229,7 @@ public class OrientDbQueryProvider extends DefaultSqlQueryProvider {
 
     private <S> OElement toOrientDbObject(S entity, Table<MetaClass<?>, Object, Object> queryCache, OrientDbObjectConverter objectConverter) {
         OElement oEl = toOrientDbObject(entity, objectConverter);
-        queryCache.put(((HasMetaClass<?>)entity).metaClass(), entity, oEl);
+        //queryCache.put(((HasMetaClass<?>)entity).metaClass(), entity, oEl);
         return oEl;
     }
 
@@ -243,6 +243,8 @@ public class OrientDbQueryProvider extends DefaultSqlQueryProvider {
     }
 
     private <K, S> Optional<ORID> queryReference(MetaClassWithKey<K, S> metaClass, K key, ODatabaseDocument dbSession) {
+        //log.trace("Cache miss: {}", key);
+
         SqlStatement statement = statementProvider.forQuery(QueryInfo.
                 <K, S, S>builder()
                 .metaClass(metaClass)
