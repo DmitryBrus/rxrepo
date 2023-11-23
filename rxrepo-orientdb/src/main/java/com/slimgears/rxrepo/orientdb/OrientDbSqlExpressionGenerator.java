@@ -39,17 +39,13 @@ public class OrientDbSqlExpressionGenerator extends DefaultSqlExpressionGenerato
         return searchTextInterceptor;
     }
 
-    @SuppressWarnings("unchecked")
     private String onVisitSearchTextExpression(Function<? super ObjectExpression<?, ?>, String> visitor, BooleanBinaryOperationExpression<?, ?, String> expression, Supplier<String> visitedExpression) {
-        String searchText = ((ConstantExpression<?, String>)expression.right()).value()
-                .replace("\\", "\\\\");
-
         String concat = PropertyExpressions.searchableProperties(expression.left())
                 .map(PropertyExpression::asString)
                 .map(visitor)
                 .collect(Collectors.joining(" + ' ' + "));
 
-        String searchExpression = super.toSqlExpression(ConstantExpression.of(searchText));
+        String searchExpression = super.toSqlExpression(expression.right());
         return formatAndFixQuotes("((%s) containsText %s)").reduce(expression, concat, searchExpression);
     }
 
