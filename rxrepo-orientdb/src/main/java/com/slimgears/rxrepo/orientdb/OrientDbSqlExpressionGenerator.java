@@ -49,7 +49,8 @@ public class OrientDbSqlExpressionGenerator extends DefaultSqlExpressionGenerato
                 .map(visitor)
                 .collect(Collectors.joining(" + ' ' + "));
 
-        return formatAndFixQuotes("((%s) containsText  '%s')").reduce(expression, concat, searchText);
+        String searchExpression = super.toSqlExpression(ConstantExpression.of(searchText));
+        return formatAndFixQuotes("((%s) containsText %s)").reduce(expression, concat, searchExpression);
     }
 
     private String onVisitBinaryExpression(Function<? super ObjectExpression<?, ?>, String> visitor, BooleanBinaryOperationExpression<?, ?, ?> expression, Supplier<String> visitedExpression) {
