@@ -263,7 +263,7 @@ public abstract class AbstractRepositoryTest {
                 .assertValueAt(10, NotificationPrototype::isCreate);
     }
 
-    @Test @UseLogLevel(LogLevel.TRACE)
+    @Test @UseLogLevel(LogLevel.DEBUG)
     public void testSearchTextWithSpecialChars() {
         products.update(Products.createOne().toBuilder()
                 .key(UniqueId.productId(1))
@@ -277,7 +277,7 @@ public abstract class AbstractRepositoryTest {
         Assert.assertEquals(Long.valueOf(1), products.findAll(Product.$.searchText(":> Product / {with} (special) % [chars]; - and more\\")).count().blockingGet());
     }
 
-    @Test @UseLogLevel(LogLevel.TRACE)
+    @Test @UseLogLevel(LogLevel.DEBUG)
     public void testSearchSqlInjection() {
         products.update(Products.createOne().toBuilder()
                         .key(UniqueId.productId(1))
