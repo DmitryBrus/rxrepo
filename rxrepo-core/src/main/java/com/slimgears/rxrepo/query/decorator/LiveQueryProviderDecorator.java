@@ -16,6 +16,7 @@ import com.slimgears.rxrepo.util.PredicateBuilder;
 import com.slimgears.rxrepo.util.PropertyExpressions;
 import com.slimgears.rxrepo.util.Queries;
 import com.slimgears.util.autovalue.annotations.*;
+import com.slimgears.util.stream.Streams;
 import io.reactivex.Observable;
 import io.reactivex.ObservableTransformer;
 

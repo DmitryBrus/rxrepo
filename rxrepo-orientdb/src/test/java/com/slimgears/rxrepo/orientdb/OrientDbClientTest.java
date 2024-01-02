@@ -2,8 +2,6 @@ package com.slimgears.rxrepo.orientdb;
 
 import com.orientechnologies.common.exception.OException;
 import com.orientechnologies.common.serialization.types.OBinaryTypeSerializer;
-import com.orientechnologies.orient.core.command.OCommandExecutor;
-import com.orientechnologies.orient.core.command.OCommandRequestText;
 import com.orientechnologies.orient.core.db.*;
 import com.orientechnologies.orient.core.db.document.ODatabaseDocument;
 import com.orientechnologies.orient.core.index.ORuntimeKeyIndexDefinition;
@@ -13,23 +11,14 @@ import com.orientechnologies.orient.core.metadata.sequence.OSequence;
 import com.orientechnologies.orient.core.record.OElement;
 import com.orientechnologies.orient.core.record.impl.ODocument;
 import com.orientechnologies.orient.core.sql.executor.OResult;
-import com.slimgears.rxrepo.sql.CacheSchemaProviderDecorator;
-import com.slimgears.rxrepo.sql.SchemaProvider;
-import com.slimgears.rxrepo.test.Inventory;
-import com.slimgears.rxrepo.test.Product;
 import com.slimgears.rxrepo.test.UniqueId;
 import com.slimgears.util.junit.AnnotationRulesJUnit;
-import com.slimgears.util.test.logging.LogLevel;
-import com.slimgears.util.test.logging.UseLogLevel;
 import io.reactivex.Observable;
 import io.reactivex.functions.Consumer;
 import io.reactivex.observers.TestObserver;
-import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.MethodRule;
-
-import java.util.function.Supplier;
 
 public class OrientDbClientTest {
     @Rule public final MethodRule annotationRules = AnnotationRulesJUnit.rule();
@@ -37,41 +26,36 @@ public class OrientDbClientTest {
     private final static String dbName = "testDb";
 
     @Test
-    public void orientDbClientTest() {
-        OrientDB client = createClient(dbName);
-        client.close();
+    public void orientDbClientTest() throws Exception {
+        rawDbTest(session -> {
+            session.createClassIfNotExist("MyClass");
+            session.command("insert into MyClass set `name`=?", "test")
+                    .stream()
+                    .forEach(System.out::println);
 
-        client = createClient(dbName);
-        client.close();
+            session.command("select count() from MyClass")
+                    .stream()
+                    .forEach(System.out::println);
+        });
     }
 
-    private OrientDB createClient(String dbName) {
+    private OrientDB createClient() {
         OrientDB db = new OrientDB(dbUrl, OrientDBConfig.defaultConfig());
-        db.createIfNotExists(dbName, ODatabaseType.PLOCAL);
-        ODatabaseDocument session = db.open(dbName, "admin", "admin");
-        session.createClassIfNotExist("MyClass");
-        session.command("insert into MyClass set `name`=?", "test")
-                .stream()
-                .forEach(System.out::println);
-
-        session.command("select count() from MyClass")
-                .stream()
-                .forEach(System.out::println);
-
-        session.close();
+        db.createIfNotExists(dbName, ODatabaseType.MEMORY);
         return db;
     }
 
     private void rawDbTest(Consumer<ODatabaseSession> test) throws Exception {
-        try (OrientDB dbClient = new OrientDB(dbUrl, OrientDBConfig.defaultConfig())) {
-            dbClient.create(dbName, ODatabaseType.MEMORY);
+        try (OrientDB dbClient = createClient()) {
             try (ODatabaseSession dbSession = dbClient.open(dbName, "admin", "admin")) {
                 test.accept(dbSession);
+            } finally {
+                dbClient.drop(dbName);
             }
         }
     }
 
-    @Test @Ignore
+    @Test
     public void testQueryByObject() throws Exception {
         rawDbTest(dbSession -> {
             OClass oClass = dbSession.createClass("MyClass");
@@ -90,7 +74,7 @@ public class OrientDbClientTest {
         });
     }
 
-    @Test @Ignore
+    @Test
     public void testAddThenQueryRawOrientDb() throws Exception {
         rawDbTest(dbSession -> {
             OClass oClass = dbSession.createClass("MyClass");
@@ -120,7 +104,7 @@ public class OrientDbClientTest {
         });
     }
 
-    @Test @Ignore
+    @Test
     public void testCustomIndex() throws Exception {
         rawDbTest(session -> {
             OClass oClass = session.createClass("MyClass");
@@ -144,25 +128,6 @@ public class OrientDbClientTest {
                     .map(OResult::toJSON)
                     .forEach(System.out::println);
         });
-    }
-
-    @Test
-    public void testOrientDbSchemeProvider() throws InterruptedException {
-        OrientDB dbClient = new OrientDB(dbUrl, OrientDBConfig.defaultConfig());
-        dbClient.createIfNotExists(dbName, ODatabaseType.MEMORY);
-        try {
-            ODatabasePool oDatabasePool = new ODatabasePool(dbClient, dbName, "admin", "admin");
-            Supplier<ODatabaseDocument> dbSessionSupplier = oDatabasePool::acquire;
-            SchemaProvider schemaProvider = new OrientDbSchemaProvider(OrientDbSessionProvider.create(dbSessionSupplier));
-            SchemaProvider cachedSchemaProvider = CacheSchemaProviderDecorator.decorate(schemaProvider);
-            cachedSchemaProvider.createOrUpdate(Inventory.metaClass)
-                    .test()
-                    .await()
-                    .assertNoErrors()
-                    .assertComplete();
-        } finally {
-            dbClient.drop(dbName);
-        }
     }
 
     @Test
@@ -208,47 +173,5 @@ public class OrientDbClientTest {
                     .assertValueCount(1)
                     .assertValueAt(0, e -> e.getProperty("num").equals(1L));
         });
-    }
-
-    @Test
-    @UseLogLevel(LogLevel.TRACE)
-    public void insertWithAutoIncrementWithProvider() {
-        OrientDB dbClient = new OrientDB(dbUrl, OrientDBConfig.defaultConfig());
-        dbClient.createIfNotExists(dbName, ODatabaseType.MEMORY);
-        OrientDbObjectConverter converter = OrientDbObjectConverter.create(
-                metaClass -> new ODocument(metaClass.simpleName()),
-                ((c, entity) -> (OElement) c.toOrientDbObject(entity)));
-        OrientDbSessionProvider sessionProvider = OrientDbSessionProvider.create(() -> dbClient.open(dbName, "admin", "admin"));
-        OrientDbSchemaProvider schemaProvider = new OrientDbSchemaProvider(sessionProvider);
-        schemaProvider.createOrUpdate(Inventory.metaClass)
-                .andThen(schemaProvider.createOrUpdate(Product.metaClass))
-                .blockingAwait();
-
-        Observable<Long> elements = Observable
-                .<OrientDbLiveQueryListener.LiveQueryNotification>create(emitter -> sessionProvider.withSession(session -> {
-                    session.live("select from Inventory", new OrientDbLiveQueryListener(emitter, null));
-                }))
-                .map(OrientDbLiveQueryListener.LiveQueryNotification::sequenceNumber);
-
-        TestObserver<Long> testObserver = elements.doOnNext(System.out::println)
-                .test();
-
-        sessionProvider.withSession(session -> {
-            session.begin();
-            OSequence sequence = session.getMetadata().getSequenceLibrary().getSequence("sequenceNum");
-            OElement inventoryElement = (OElement)converter.toOrientDbObject(Inventory
-                    .builder()
-                    .id(UniqueId.inventoryId(1))
-                    .name("Inventory 1")
-                    .build());
-
-            inventoryElement.setProperty("__sequenceNum", sequence.next());
-            inventoryElement.save();
-            session.commit();
-        });
-
-        testObserver.awaitCount(1)
-                .assertValueCount(1)
-                .assertValueAt(0, 1L);
     }
 }

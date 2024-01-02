@@ -31,7 +31,7 @@ public class ExpressionSerializationTest {
         Assert.assertNotNull(json);
         System.out.println(json);
 
-        ObjectExpression<TestEntity, ? extends Comparable<?>> deserializedExpression = objectMapper.readValue(json, new TypeReference<ObjectExpression<TestEntity<? extends Comparable<?>>, ? extends Comparable<?>>>(){});
+        ObjectExpression<TestEntity<?>, ? extends Comparable<?>> deserializedExpression = objectMapper.readValue(json, new TypeReference<ObjectExpression<TestEntity<? extends Comparable<?>>, ? extends Comparable<?>>>(){});
         Assert.assertNotNull(deserializedExpression);
         Assert.assertEquals(objectMapper.writeValueAsString(intExpression), objectMapper.writeValueAsString(deserializedExpression));
 

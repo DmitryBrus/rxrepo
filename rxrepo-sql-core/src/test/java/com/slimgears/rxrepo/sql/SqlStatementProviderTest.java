@@ -1,33 +1,26 @@
 package com.slimgears.rxrepo.sql;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.slimgears.rxrepo.query.provider.DeleteInfo;
 import com.slimgears.rxrepo.query.provider.PropertyUpdateInfo;
 import com.slimgears.rxrepo.query.provider.QueryInfo;
 import com.slimgears.rxrepo.query.provider.UpdateInfo;
-import com.slimgears.util.autovalue.annotations.MetaClass;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mockito;
 
 import java.util.Arrays;
-import java.util.Objects;
-
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.when;
 
 public class SqlStatementProviderTest {
     private SqlStatementProvider statementProvider;
-    private SchemaProvider mockSchemaProvider = Mockito.mock(SchemaProvider.class);
+    private SqlReferenceResolver referenceResolver;
 
     @Before
     public void setUp() {
         SqlExpressionGenerator expressionGenerator = new DefaultSqlExpressionGenerator();
-        SqlAssignmentGenerator assignmentGenerator = new DefaultSqlAssignmentGenerator(expressionGenerator);
-        statementProvider = new DefaultSqlStatementProvider(expressionGenerator, assignmentGenerator, mockSchemaProvider);
-        when(mockSchemaProvider.tableName(any())).then(invocation -> invocation.<MetaClass<?>>getArgument(0).simpleName());
+        statementProvider = new DefaultSqlStatementProvider(expressionGenerator, SqlTypes.instance, () -> "repository");
+        referenceResolver = new DefaultSqlReferenceResolver(DigestKeyEncoder.create(), expressionGenerator);
     }
 
     @Test
@@ -45,11 +38,12 @@ public class SqlStatementProviderTest {
                 .build());
 
         Assert.assertEquals(
-                "select `name`, `price`, `id`, `__sequenceNum` from Product " +
-                        "where (((`name` like '%' + ? + '%') and (`price` < ?)) and (`type` in (?))) " +
-                        "order by `name` asc, `id` desc " +
+                "select \"name\", \"price\", \"id\" from repository.Product " +
+                        "where (((\"name\" like '%' + ? + '%') and (\"price\" < ?)) and (\"type\" in (?))) " +
+                        "order by \"name\" asc, \"id\" desc " +
                         "limit 100 " +
-                        "skip 200", statement.statement());
+                        "skip 200",
+                statement.statement());
         Assert.assertArrayEquals(statement.args(),
                 new Object[]{"substr", 100, Arrays.asList(ProductPrototype.Type.ComputeHardware, ProductPrototype.Type.ComputerSoftware)});
     }
@@ -65,9 +59,9 @@ public class SqlStatementProviderTest {
                 .build());
 
         Assert.assertEquals(
-                "select (LEN(`inventory`.`name`) + ?) " +
-                        "from Product " +
-                        "where ((`name` like '%' + ? + '%') and (`price` < ?)) " +
+                "select (LEN(\"inventory.name\") + ?) " +
+                        "from repository.Product " +
+                        "where ((\"name\" like '%' + ? + '%') and (\"price\" < ?)) " +
                         "limit 100 " +
                         "skip 200", statement.statement());
         Assert.assertArrayEquals(new Object[]{5, "substr", 100}, statement.args());
@@ -86,16 +80,15 @@ public class SqlStatementProviderTest {
                 .type(ProductPrototype.Type.ComputeHardware)
                 .build();
 
-        ReferenceResolver referenceResolverMock = Mockito.mock(ReferenceResolver.class);
-        when(referenceResolverMock.toReferenceValue(Objects.requireNonNull(product.inventory()))).thenReturn(SqlStatement.of("#31:23"));
-        SqlStatement statement = statementProvider.forInsertOrUpdate(Product.metaClass, product, referenceResolverMock);
+        SqlStatement statement = statementProvider.forInsertOrUpdate(Product.metaClass, product, referenceResolver);
         Assert.assertEquals(
-                "update Product " +
-                        "set `id` = ?, `name` = ?, `inventory` = (#31:23), `type` = ?, `price` = ? " +
-                        "upsert " +
-                        "return after " +
-                        "where (`id` = ?)", statement.statement());
-        Assert.assertArrayEquals(new Object[] { 200, "prd1", ProductPrototype.Type.ComputeHardware, 30, 200}, statement.args());
+                "insert into repository.Product " +
+                        "(\"id\", \"name\", \"inventory\", \"type\", \"price\") " +
+                        "values (?, ?, (?), ?, ?)\n" +
+                        "on conflict(id) do\n" +
+                        "update  set \"id\" = ?, \"name\" = ?, \"inventory\" = ?, \"type\" = ?, \"price\" = ?",
+                statement.statement());
+        Assert.assertArrayEquals(new Object[] { 200, "prd1", 300, ProductPrototype.Type.ComputeHardware, 30, 200, "prd1", product.inventory(), ProductPrototype.Type.ComputeHardware, 30}, statement.args());
     }
 
     @Test
@@ -105,7 +98,7 @@ public class SqlStatementProviderTest {
                 .limit(100L)
                 .predicate(Product.$.name.greaterOrEqual("product1"))
                 .build());
-        Assert.assertEquals("delete from Product where (not (`name` < ?)) limit 100", statement.statement());
+        Assert.assertEquals("delete from repository.Product where (not (\"name\" < ?)) limit 100", statement.statement());
         Assert.assertArrayEquals(new Object[]{"product1"}, statement.args());
     }
 
@@ -118,10 +111,11 @@ public class SqlStatementProviderTest {
                 .limit(100L)
                 .build());
         Assert.assertEquals(
-                "update Product " +
-                        "set `name` = (`name` + ?) " +
-                        "where (`name` like '%' + ? + '%') " +
-                        "limit 100", statement.statement());
+                "update repository.Product " +
+                        "set \"name\" = (\"name\" || ?) " +
+                        "where (\"name\" like '%' + ? + '%') " +
+                        "limit 100",
+                statement.statement());
         Assert.assertArrayEquals(new Object[]{"aa", "bbb"}, statement.args());
     }
 }

@@ -4,6 +4,7 @@ import java.util.Arrays;
 import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public interface SqlStatement {
     SqlStatement empty = create("");
@@ -19,6 +20,19 @@ public interface SqlStatement {
 
     default SqlStatement withArgs(Object... args) {
         return create(statement(), args);
+    }
+
+    default SqlStatement append(String... clauses) {
+        return of(statement(), SqlStatement.of(clauses).statement()).withArgs(args());
+    }
+
+    default SqlStatement append(SqlStatement... statements) {
+        return of(Stream.concat(Stream.of(this), Stream.of(statements))
+                .map(SqlStatement::statement)
+                .collect(Collectors.joining("\n;")))
+                .withArgs(Stream.concat(Stream.of(this), Stream.of(statements))
+                        .flatMap(s -> Stream.of(s.args()))
+                        .toArray(Object[]::new));
     }
 
     static SqlStatement of(String... clauses) {

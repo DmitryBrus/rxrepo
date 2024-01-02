@@ -17,6 +17,7 @@ import com.slimgears.util.reflect.TypeTokens;
 
 import java.io.IOException;
 
+@SuppressWarnings({"UnstableApiUsage", "rawtypes"})
 @AutoService(Module.class)
 public class ExpressionModule extends Module {
     @Override

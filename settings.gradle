@@ -1,7 +1,7 @@
 include 'rxrepo-core'
 include 'rxrepo-apt'
 include 'rxrepo-orientdb'
-include 'rxrepo-jdbc'
+include 'rxrepo-postgres'
 include 'rxrepo-sql-core'
 include 'rxrepo-test'
 include 'rxrepo-mongodb'

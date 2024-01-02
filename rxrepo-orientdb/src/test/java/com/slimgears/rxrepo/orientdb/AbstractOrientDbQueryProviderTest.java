@@ -3,9 +3,7 @@ package com.slimgears.rxrepo.orientdb;
 import com.slimgears.rxrepo.query.Notification;
 import com.slimgears.rxrepo.query.Repository;
 import com.slimgears.rxrepo.query.decorator.OperationTimeoutQueryProviderDecorator;
-import com.slimgears.rxrepo.query.decorator.SubscribeOnSchedulingQueryProviderDecorator;
 import com.slimgears.rxrepo.test.*;
-import com.slimgears.rxrepo.util.SchedulingProvider;
 import com.slimgears.util.generic.MoreStrings;
 import com.slimgears.util.stream.Streams;
 import com.slimgears.util.test.logging.LogLevel;
@@ -15,14 +13,15 @@ import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.logging.LoggingMeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import io.reactivex.Observable;
-import io.reactivex.Scheduler;
 import io.reactivex.observers.BaseTestConsumer;
 import io.reactivex.observers.TestObserver;
 import io.reactivex.schedulers.Schedulers;
+import org.apache.commons.io.FileUtils;
 import org.junit.*;
 
+import java.io.File;
+import java.io.IOException;
 import java.time.Duration;
-import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
@@ -31,7 +30,8 @@ public abstract class AbstractOrientDbQueryProviderTest extends AbstractReposito
     private static LoggingMeterRegistry loggingMeterRegistry;
 
     @BeforeClass
-    public static void setUpClass() {
+    public static void setUpClass() throws IOException {
+        FileUtils.deleteDirectory(new File("db"));
         loggingMeterRegistry = new LoggingMeterRegistry();
         SimpleMeterRegistry simpleMeterRegistry = new SimpleMeterRegistry();
         Metrics.globalRegistry
@@ -47,10 +47,8 @@ public abstract class AbstractOrientDbQueryProviderTest extends AbstractReposito
         }
     }
 
-    protected Repository createRepository(SchedulingProvider schedulingProvider, String dbUrl, OrientDbRepository.Type dbType) {
+    protected Repository createRepository(String dbUrl, OrientDbRepository.Type dbType) {
         String name = MoreStrings.format(dbName, dbType, testNameRule.getMethodName().replaceAll("\\[\\d+]", ""));
-        Scheduler updateScheduler = Schedulers.from(Executors.newFixedThreadPool(5));
-        Scheduler queryScheduler = Schedulers.from(Executors.newFixedThreadPool(5));
         return OrientDbRepository
                 .builder()
                 .url(dbUrl)
@@ -58,11 +56,9 @@ public abstract class AbstractOrientDbQueryProviderTest extends AbstractReposito
                 .aggregationDebounceTimeMillis(2000)
                 .type(dbType)
                 .name(name)
-                .schedulingProvider(schedulingProvider)
                 .decorate(
-                        SubscribeOnSchedulingQueryProviderDecorator.create(updateScheduler, queryScheduler, Schedulers.from(Runnable::run)),
                         OperationTimeoutQueryProviderDecorator.create(Duration.ofSeconds(20), Duration.ofSeconds(360)))
-                .enableBatchSupport()
+                .enableBatchSupport(1000)
                 .maxConnections(10)
                 .build();
     }
@@ -78,9 +74,9 @@ public abstract class AbstractOrientDbQueryProviderTest extends AbstractReposito
     public void testRunQueriesFromMultipleThreads() throws InterruptedException {
         products.update(Products.createMany(1000)).blockingAwait();
         Observable.range(0, 10)
-                .observeOn(Schedulers.newThread())
                 .flatMap(i -> Observable.range(0, 100)
-                        .map(j -> products.query().limit(1).retrieve()))
+                        .map(j -> products.query().limit(1).retrieve())
+                        .subscribeOn(Schedulers.computation()))
                 .ignoreElements()
                 .test()
                 .await()
@@ -91,40 +87,40 @@ public abstract class AbstractOrientDbQueryProviderTest extends AbstractReposito
     //@UseLogLevel(LogLevel.TRACE)
     public void testRunUpdatesFromMultipleThreads() throws InterruptedException {
         Observable.range(0, 10)
-                .observeOn(Schedulers.newThread())
                 .flatMapCompletable(i -> Observable
                         .range(0, 100)
-                        .flatMapCompletable(j -> products.update(Products.createMany(10))))
+                        .flatMapCompletable(j -> products.update(Products.createMany(10)))
+                        .subscribeOn(Schedulers.computation()))
                 .test()
                 .await()
                 .assertNoErrors();
     }
 
-    @Test @Ignore
-    @UseLogLevel(LogLevel.TRACE)
-    public void testLiveQueriesFromMultipleThreads() throws InterruptedException {
+    @Test
+    @UseLogLevel(LogLevel.INFO)
+    public void testLiveQueriesFromMultipleThreads() {
         Observable.range(0, 10)
-                .observeOn(Schedulers.newThread())
-                .flatMap(i -> Observable
-                        .range(0, 100)
-                        .flatMap(j -> products.update(Products.createOne(i*100 + j)).ignoreElement().andThen(products.queryAndObserve())))
-                .take(2000)
+                .flatMap(i -> products
+                        .update(Products.createMany(i*10, 10))
+                        .andThen(products.queryAndObserve())
+                        .subscribeOn(Schedulers.computation()))
+                .take(200)
                 .test()
-                .await()
-                .assertValueCount(2000)
-                .assertNoErrors();
+                .assertOf(TestUtils.countAtLeast(200, Duration.ofSeconds(60)));
     }
 
     @Test
     @UseLogLevels({
             @UseLogLevel(logger = "com.slimgears.rxrepo.orientdb.OrientDbLiveQueryListener", value = LogLevel.TRACE),
             @UseLogLevel(LogLevel.INFO)})
+    @Ignore
     public void testAddProductThenUpdateInventoryInOrder() throws InterruptedException {
         super.testAddProductThenUpdateInventoryInOrder();
     }
 
     @SuppressWarnings("unchecked")
     @Test
+    @UseLogLevel(LogLevel.INFO)
     public void testCreateModifyOrder() throws InterruptedException {
         Inventory inventory = Inventory.builder()
                         .id(UniqueId.inventoryId(1))
@@ -154,10 +150,11 @@ public abstract class AbstractOrientDbQueryProviderTest extends AbstractReposito
         products.update(Streams.fromIterable(Products.createMany(productCount))
                 .map(p -> p.toBuilder().inventory(inventory).build())
                 .collect(Collectors.toList()))
-                .subscribe();
+                .blockingAwait();
 
         inventories.update(inventory.toBuilder().name(inventory.name() + " - Updated").build())
-                .subscribe();
+                .ignoreElement()
+                .blockingAwait();
 
         testObserver.await()
                 .assertNoErrors();

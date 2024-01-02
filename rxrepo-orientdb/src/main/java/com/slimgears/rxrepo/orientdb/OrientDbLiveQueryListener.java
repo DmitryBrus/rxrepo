@@ -5,8 +5,7 @@ import com.orientechnologies.common.exception.OException;
 import com.orientechnologies.orient.core.db.OLiveQueryResultListener;
 import com.orientechnologies.orient.core.db.document.ODatabaseDocument;
 import com.orientechnologies.orient.core.sql.executor.OResult;
-import com.slimgears.rxrepo.sql.SqlQueryProvider;
-import com.slimgears.rxrepo.sql.SqlStatement;
+import com.slimgears.rxrepo.sql.SqlFields;
 import io.reactivex.ObservableEmitter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -17,12 +16,10 @@ import static com.slimgears.util.generic.MoreStrings.lazy;
 
 class OrientDbLiveQueryListener implements OLiveQueryResultListener {
     private final ObservableEmitter<LiveQueryNotification> emitter;
-    private final SqlStatement statement;
     private final static Logger log = LoggerFactory.getLogger(OrientDbLiveQueryListener.class);
 
-    OrientDbLiveQueryListener(ObservableEmitter<LiveQueryNotification> emitter, SqlStatement statement) {
+    OrientDbLiveQueryListener(ObservableEmitter<LiveQueryNotification> emitter) {
         this.emitter = emitter;
-        this.statement = statement;
     }
 
     @AutoValue
@@ -41,7 +38,7 @@ class OrientDbLiveQueryListener implements OLiveQueryResultListener {
     public void onCreate(ODatabaseDocument database, OResult data) {
         log.trace("onCreate Notification received: {}", lazy(data::toJSON));
         log.trace("Beginning emit >>");
-        emitter.onNext(LiveQueryNotification.create(database, null, data, data.getProperty(SqlQueryProvider.sequenceNumField)));
+        emitter.onNext(LiveQueryNotification.create(database, null, data, data.getProperty(SqlFields.sequenceFieldName)));
         log.trace("Emit finished <<");
     }
 
@@ -49,7 +46,7 @@ class OrientDbLiveQueryListener implements OLiveQueryResultListener {
     public void onUpdate(ODatabaseDocument database, OResult before, OResult after) {
         log.trace("onUpdate Notification received: {} -> {}", lazy(before::toJSON), lazy(after::toJSON));
         log.trace("Beginning emit >>");
-        emitter.onNext(LiveQueryNotification.create(database, before, after, after.getProperty(SqlQueryProvider.sequenceNumField)));
+        emitter.onNext(LiveQueryNotification.create(database, before, after, after.getProperty(SqlFields.sequenceFieldName)));
         log.trace("Emit finished <<");
     }
 
@@ -57,7 +54,7 @@ class OrientDbLiveQueryListener implements OLiveQueryResultListener {
     public void onDelete(ODatabaseDocument database, OResult data) {
         log.trace("onDeleted Notification received: {}", lazy(data::toJSON));
         log.trace("Beginning emit >>");
-        emitter.onNext(LiveQueryNotification.create(database, data, null, data.getProperty(SqlQueryProvider.sequenceNumField)));
+        emitter.onNext(LiveQueryNotification.create(database, data, null, data.getProperty(SqlFields.sequenceFieldName)));
         log.trace("Emit finished <<");
     }
 

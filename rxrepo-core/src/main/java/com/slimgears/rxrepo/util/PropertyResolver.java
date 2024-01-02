@@ -10,6 +10,7 @@ import com.slimgears.util.reflect.TypeTokens;
 
 import java.util.Optional;
 
+@SuppressWarnings("UnstableApiUsage")
 public interface PropertyResolver {
     Iterable<String> propertyNames();
     Object getProperty(String name, Class<?> type);
@@ -17,7 +18,7 @@ public interface PropertyResolver {
 
     @SuppressWarnings("unchecked")
     default <V> V getProperty(PropertyMeta<?, V> propertyMeta) {
-        Object value = getProperty(propertyMeta.name(), TypeTokens.asClass(propertyMeta.type()));
+        Object value = getProperty(propertyMeta.name(), propertyMeta.type().getRawType());
         return (value instanceof PropertyResolver)
                 ? ((PropertyResolver)value).toObject(propertyMeta.type())
                 : (V)value;

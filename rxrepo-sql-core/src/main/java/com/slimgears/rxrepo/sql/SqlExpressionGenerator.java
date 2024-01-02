@@ -1,5 +1,6 @@
 package com.slimgears.rxrepo.sql;
 
+import com.google.common.reflect.TypeToken;
 import com.slimgears.rxrepo.expressions.ConstantExpression;
 import com.slimgears.rxrepo.expressions.ObjectExpression;
 import com.slimgears.rxrepo.expressions.PropertyExpression;
@@ -12,6 +13,7 @@ import java.util.concurrent.Callable;
 public interface SqlExpressionGenerator {
     <S, T> String toSqlExpression(ObjectExpression<S, T> expression);
     <S, T> String toSqlExpression(ObjectExpression<S, T> expression, ObjectExpression<?, S> arg);
+    <S, T> String toSqlExpression(ObjectExpression<S, T> expression, String arg);
     <T> T withParams(List<Object> params, Callable<T> callable);
 
     default String fromStatement(SqlStatement statement) {
@@ -25,5 +27,9 @@ public interface SqlExpressionGenerator {
 
     default String fromConstant(Object value) {
         return toSqlExpression(ConstantExpression.of(value));
+    }
+
+    default String fromNull(TypeToken<?> type) {
+        return toSqlExpression(ConstantExpression.ofNull(type));
     }
 }

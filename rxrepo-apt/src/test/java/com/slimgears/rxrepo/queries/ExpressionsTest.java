@@ -9,13 +9,17 @@ import com.slimgears.rxrepo.expressions.ObjectExpression;
 import com.slimgears.rxrepo.filters.ComparableFilter;
 import com.slimgears.rxrepo.filters.ComparableFilter;
 import com.slimgears.rxrepo.filters.StringFilter;
+import com.slimgears.rxrepo.query.provider.SortingInfo;
+import com.slimgears.rxrepo.query.provider.SortingInfos;
 import com.slimgears.rxrepo.util.Expressions;
 import com.slimgears.rxrepo.util.PropertyExpressions;
 import org.junit.Assert;
 import org.junit.Test;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -538,5 +542,32 @@ public class ExpressionsTest {
                 TestEntity.$.refEntity.id.notEq(1).and(TestEntity.$.refEntity.text.betweenExclusive("1", "2")),
                 Expressions.compose(
                         TestEntity.$.refEntity, TestRefEntity.$.id.notEq(1).and(TestRefEntity.$.text.betweenExclusive("1", "2"))));
+    }
+
+    @Test
+    public void testComparatorCompiling() {
+        Comparator<TestEntity> testEntityComparator = SortingInfos.toComparator(Arrays.asList(
+                SortingInfo.create(TestEntity.$.text, true),
+                SortingInfo.create(TestEntity.$.number, false)));
+        TestRefEntity refEntity = TestRefEntity.create(1, "ref1");
+
+        List<TestEntity> testEntities = Arrays.asList(
+                TestEntity.builder()
+                        .key(TestKey.create("key1"))
+                        .text("text1")
+                        .number(1)
+                        .refEntity(refEntity)
+                        .refEntities(Collections.emptyList())
+                        .build(),
+                TestEntity.builder()
+                        .key(TestKey.create("key2"))
+                        .text("text2")
+                        .number(2)
+                        .refEntity(refEntity)
+                        .refEntities(Collections.emptyList())
+                        .build());
+
+        testEntities.sort(testEntityComparator);
+        Assert.assertEquals("text1", testEntities.get(0).text());
     }
 }

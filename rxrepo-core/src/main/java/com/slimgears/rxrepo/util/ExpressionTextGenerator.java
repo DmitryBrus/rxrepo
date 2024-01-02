@@ -193,7 +193,7 @@ public class ExpressionTextGenerator {
         return generate(expression, argStr);
     }
     
-    private String generate(ObjectExpression<?, ?> expression, String arg) {
+    public String generate(ObjectExpression<?, ?> expression, String arg) {
         Visitor visitor = createVisitor();
         return visitor.visit(expression, arg);
     }

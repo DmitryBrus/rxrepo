@@ -2,7 +2,6 @@ package com.slimgears.rxrepo.query.decorator;
 
 import com.slimgears.nanometer.ExecutorMetrics;
 import com.slimgears.nanometer.MetricCollector;
-import com.slimgears.nanometer.MetricTag;
 import com.slimgears.rxrepo.expressions.Aggregator;
 import com.slimgears.rxrepo.query.Notification;
 import com.slimgears.rxrepo.query.provider.DeleteInfo;
@@ -18,15 +17,13 @@ import io.reactivex.Single;
 import io.reactivex.functions.Function;
 
 import java.util.concurrent.Executor;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
-public class MetricsQueryProviderDecorator implements QueryProvider.Decorator, MetricCollector.Binder, AutoCloseable {
-    private final AtomicReference<MetricCollector> metricCollector;
+public class MetricsQueryProviderDecorator implements QueryProvider.Decorator {
+    private final MetricCollector metricCollector;
 
     private MetricsQueryProviderDecorator(MetricCollector collector) {
-        metricCollector = new AtomicReference<>(collector.name("rxrepo"));
+        metricCollector = collector;
     }
 
     public static MetricsQueryProviderDecorator create() {
@@ -42,17 +39,7 @@ public class MetricsQueryProviderDecorator implements QueryProvider.Decorator, M
     }
 
     private Executor decorateExecutor(Executor executor) {
-        return ExecutorMetrics.wrap(executor, metricCollector.get().name("scheduler"));
-    }
-
-    @Override
-    public void bindTo(MetricCollector.Factory factory) {
-        metricCollector.set(factory.name("rxrepo").create());
-    }
-
-    @Override
-    public void close() {
-        metricCollector.set(MetricCollector.empty());
+        return ExecutorMetrics.wrap(executor, metricCollector.name("scheduler"));
     }
 
     @Override
@@ -61,8 +48,16 @@ public class MetricsQueryProviderDecorator implements QueryProvider.Decorator, M
     }
 
     class Decorator extends AbstractQueryProviderDecorator {
+        private final MetricCollector metricCollector = MetricsQueryProviderDecorator.this.metricCollector.name("provider");
+
         protected Decorator(QueryProvider underlyingProvider) {
             super(underlyingProvider);
+        }
+
+        @Override
+        public <K, S> Completable insertOrUpdate(MetaClassWithKey<K, S> metaClass, Iterable<S> entities, boolean recursive) {
+            return super.insertOrUpdate(metaClass, entities, recursive)
+                    .compose(asyncCollector("insertOrUpdate", metaClass).forCompletable());
         }
 
         @Override
@@ -134,18 +129,10 @@ public class MetricsQueryProviderDecorator implements QueryProvider.Decorator, M
         }
 
         private MetricCollector.Async asyncCollector(String operation, MetaClass<?> metaClass) {
-            return metricCollector.get()
+            return metricCollector
                     .name(metaClass.simpleName())
                     .name(operation)
-                    .async()
-                    .countSubscriptions("totalSubscriptionCount")
-                    .countActiveSubscriptions("activeSubscriptionCount")
-                    .countCompletions("completeCount")
-                    .countErrors("errorCount")
-                    .countItems("itemCount")
-                    .timeTillFirst("timeTillFirst")
-                    .timeTillComplete("timeTillComplete")
-                    .timeBetweenItems("timeBetweenItems");
+                    .asyncDefault();
         }
     }
 }

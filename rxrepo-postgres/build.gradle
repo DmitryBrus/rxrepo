@@ -1,0 +1,13 @@
+dependencies {
+    implementation project(':rxrepo-core')
+    implementation project(':rxrepo-sql-core')
+    compileOnly libs.jacksonAnnotations
+    implementation libs.rxJava
+    implementation libs.postgresJdbc
+    implementation libs.slimStreamUtils
+    implementation libs.slimAutoValueUtils
+    implementation libs.slimAutoValueUtilsAnnotations
+    testImplementation project(':rxrepo-test')
+    testImplementation libs.slimTestUtils, libs.slimTestUtilsJunit, libs.slimTestUtilsLogback
+    testImplementation libs.junit, libs.mockito
+}

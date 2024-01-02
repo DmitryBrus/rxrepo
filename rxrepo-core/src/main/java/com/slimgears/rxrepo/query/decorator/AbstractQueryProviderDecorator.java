@@ -34,15 +34,24 @@ public class AbstractQueryProviderDecorator implements QueryProvider {
         return getUnderlyingProvider()
                 .insert(metaClass, entities, recursive)
                 .doOnSubscribe(d -> log.trace("Starting insert of {}", lazy(metaClass::simpleName)))
-                .doOnError(error -> log.trace("Failed to insert {}", lazy(metaClass::simpleName), error))
+                //.doOnError(error -> log.trace("Failed to insert {}", lazy(metaClass::simpleName), error))
                 .doOnComplete(() -> log.trace("Insert of {} complete", lazy(metaClass::simpleName)));
+    }
+
+    @Override
+    public <K, S> Completable insertOrUpdate(MetaClassWithKey<K, S> metaClass, Iterable<S> entities, boolean recursive) {
+        return getUnderlyingProvider()
+                .insertOrUpdate(metaClass, entities, recursive)
+                .doOnSubscribe(d -> log.trace("Starting insertOrUpdate of {}", lazy(metaClass::simpleName)))
+                //.doOnError(error -> log.trace("Failed to insertOrUpdate {}", lazy(metaClass::simpleName), error))
+                .doOnComplete(() -> log.trace("InsertOrUpdate of {} complete", lazy(metaClass::simpleName)));
     }
 
     @Override
     public <K, S> Single<Supplier<S>> insertOrUpdate(MetaClassWithKey<K, S> metaClass, S entity, boolean recursive) {
         return getUnderlyingProvider().insertOrUpdate(metaClass, entity, recursive)
                 .doOnSubscribe(d -> log.trace("Starting insertOrUpdate of {}", lazy(metaClass::simpleName)))
-                .doOnError(error -> log.trace("Failed to insertOrUpdate {}", lazy(metaClass::simpleName), error))
+                //.doOnError(error -> log.trace("Failed to insertOrUpdate {}", lazy(metaClass::simpleName), error))
                 .doOnSuccess(v -> log.trace("insertOrUpdate of {} complete", lazy(metaClass::simpleName)));
 
     }
@@ -51,7 +60,7 @@ public class AbstractQueryProviderDecorator implements QueryProvider {
     public <K, S> Maybe<Supplier<S>> insertOrUpdate(MetaClassWithKey<K, S> metaClass, K key, boolean recursive, Function<Maybe<S>, Maybe<S>> entityUpdater) {
         return getUnderlyingProvider().insertOrUpdate(metaClass, key, recursive, entityUpdater)
                 .doOnSubscribe(d -> log.trace("Starting insertOrUpdate of {}", lazy(metaClass::simpleName)))
-                .doOnError(error -> log.trace("Failed to insertOrUpdate {}", lazy(metaClass::simpleName), error))
+                //.doOnError(error -> log.trace("Failed to insertOrUpdate {}", lazy(metaClass::simpleName), error))
                 .doOnSuccess(v -> log.trace("insertOrUpdate of {} complete", lazy(metaClass::simpleName)));
     }
 
@@ -59,7 +68,7 @@ public class AbstractQueryProviderDecorator implements QueryProvider {
     public <K, S, T> Observable<Notification<T>> query(QueryInfo<K, S, T> query) {
         return getUnderlyingProvider().query(query)
                 .doOnSubscribe(d -> log.trace("Starting query of {}", lazy(() -> query.metaClass().simpleName())))
-                .doOnError(error -> log.trace("Failed to query {}", lazy(() -> query.metaClass().simpleName()), error))
+                //.doOnError(error -> log.trace("Failed to query {}", lazy(() -> query.metaClass().simpleName()), error))
                 .doOnComplete(() -> log.trace("query of {} complete", lazy(() -> query.metaClass().simpleName())));
     }
 
@@ -68,7 +77,7 @@ public class AbstractQueryProviderDecorator implements QueryProvider {
         return getUnderlyingProvider().queryAndObserve(queryInfo, observeInfo)
                 .doOnNext(n -> log.trace("{}", Notifications.toBriefString(queryInfo.metaClass(), n)))
                 .doOnSubscribe(d -> log.trace("Starting queryAndObserve of {}", lazy(() -> queryInfo.metaClass().simpleName())))
-                .doOnError(error -> log.trace("Failed to queryAndObserve {}", lazy(() -> queryInfo.metaClass().simpleName()), error))
+                //.doOnError(error -> log.trace("Failed to queryAndObserve {}", lazy(() -> queryInfo.metaClass().simpleName()), error))
                 .doOnComplete(() -> log.trace("queryAndObserve of {} complete", lazy(() -> queryInfo.metaClass().simpleName())));
     }
 
@@ -77,7 +86,7 @@ public class AbstractQueryProviderDecorator implements QueryProvider {
         return getUnderlyingProvider().liveQuery(query)
                 .doOnNext(n -> log.trace("{}", Notifications.toBriefString(query.metaClass(), n)))
                 .doOnSubscribe(d -> log.trace("Starting liveQuery of {}", lazy(() -> query.metaClass().simpleName())))
-                .doOnError(error -> log.trace("Failed to liveQuery {}", lazy(() -> query.metaClass().simpleName()), error))
+                //.doOnError(error -> log.trace("Failed to liveQuery {}", lazy(() -> query.metaClass().simpleName()), error))
                 .doOnComplete(() -> log.trace("liveQuery of {} complete", lazy(() -> query.metaClass().simpleName())));
 
     }
@@ -92,7 +101,7 @@ public class AbstractQueryProviderDecorator implements QueryProvider {
         return getUnderlyingProvider().liveAggregate(query, aggregator)
                 .doOnNext(n -> log.trace("[{}] Received aggregation notification: {}", lazy(() -> getClass().getSimpleName()), n))
                 .doOnSubscribe(d -> log.trace("Starting liveAggregation of {}", lazy(() -> query.metaClass().simpleName())))
-                .doOnError(error -> log.trace("Failed to liveAggregation {}", lazy(() -> query.metaClass().simpleName()), error))
+                //.doOnError(error -> log.trace("Failed to liveAggregation {}", lazy(() -> query.metaClass().simpleName()), error))
                 .doOnComplete(() -> log.trace("liveAggregation of {} complete", lazy(() -> query.metaClass().simpleName())));
     }
 
@@ -101,7 +110,7 @@ public class AbstractQueryProviderDecorator implements QueryProvider {
         return getUnderlyingProvider()
                 .update(update)
                 .doOnSubscribe(d -> log.trace("Starting update of {}", lazy(() -> update.metaClass().simpleName())))
-                .doOnError(error -> log.trace("Failed to update {}", lazy(() -> update.metaClass().simpleName()), error))
+                //.doOnError(error -> log.trace("Failed to update {}", lazy(() -> update.metaClass().simpleName()), error))
                 .doOnSuccess(v -> log.trace("Update of {} complete", lazy(() -> update.metaClass().simpleName())));
 
     }
@@ -110,7 +119,7 @@ public class AbstractQueryProviderDecorator implements QueryProvider {
     public <K, S> Single<Integer> delete(DeleteInfo<K, S> delete) {
         return getUnderlyingProvider().delete(delete)
                 .doOnSubscribe(d -> log.trace("Starting delete of {}", lazy(() -> delete.metaClass().simpleName())))
-                .doOnError(error -> log.trace("Failed to delete {}", lazy(() -> delete.metaClass().simpleName()), error))
+                //.doOnError(error -> log.trace("Failed to delete {}", lazy(() -> delete.metaClass().simpleName()), error))
                 .doOnSuccess(v -> log.trace("Delete of {} complete", lazy(() -> delete.metaClass().simpleName())));
     }
 

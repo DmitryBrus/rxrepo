@@ -13,7 +13,7 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class DefaultRepository implements Repository {
-    private final static RepositoryConfigModel defaultConfig = RepositoryConfig
+    public final static RepositoryConfigModel defaultConfig = RepositoryConfig
             .builder()
             .retryCount(10)
             .bufferDebounceTimeoutMillis(100)

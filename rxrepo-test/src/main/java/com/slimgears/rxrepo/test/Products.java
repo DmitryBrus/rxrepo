@@ -13,23 +13,27 @@ import java.util.stream.Stream;
 
 public class Products {
     public static Iterable<Product> createMany(int count) {
-        return createMany(0, count);
+        return createMany(0, count, 10);
     }
 
     public static Iterable<Product> createMany(int startingId, int count) {
+        return createMany(startingId, count, 10);
+    }
+
+    public static Iterable<Product> createMany(int startingId, int count, int inventoriesFactor) {
         final Product.Type[] productTypes = {
                 ProductEntity.Type.ConsumerElectronics,
                 ProductEntity.Type.ComputeHardware,
                 ProductEntity.Type.ComputerSoftware
         };
 
-        Manufacturer manufacturer = Manufacturer.create(UniqueId.manufacturerId(0), "Manufacturer 0");
+        Manufacturer manufacturer = Manufacturer.create(UniqueId.manufacturerId(0), "Manufacturer-0");
 
-        List<Inventory> inventories = IntStream.range(0, Math.max(1, count / 10))
+        List<Inventory> inventories = IntStream.range(0, Math.max(1, count / inventoriesFactor))
                 .mapToObj(i -> Inventory
                         .builder()
                         .id(UniqueId.inventoryId(i))
-                        .name("Inventory " + i)
+                        .name("Inventory-" + i)
                         .manufacturer(manufacturer)
                         .build())
                 .collect(Collectors.toList());
@@ -40,7 +44,7 @@ public class Products {
                                 .mapToObj(i -> Vendor
                                         .builder()
                                         .id(UniqueId.vendorId(i))
-                                        .name("Vendor " + i)
+                                        .name("Vendor-" + i)
                                         .build()),
                         Stream.of((Vendor)null))
                 .collect(Collectors.toList());
@@ -53,7 +57,7 @@ public class Products {
         return IntStream.range(startingId, startingId + count)
                 .mapToObj(i -> Product.builder()
                         .key(UniqueId.productId(i))
-                        .name("Product " + i)
+                        .name("Product-" + i)
                         .type(productTypes[i % productTypes.length])
                         .inventory(inventories.get(i % inventories.size()))
                         .vendor(vendors.get(i % vendors.size()))
@@ -68,6 +72,6 @@ public class Products {
     }
 
     public static Product createOne(int id) {
-        return Iterables.firstOf(createMany(id, 1));
+        return Iterables.firstOf(createMany(id, 1, 1));
     }
 }

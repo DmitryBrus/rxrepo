@@ -4,7 +4,7 @@ dependencies {
     implementation libs.rxJava
     implementation libs.slimAutoValueUtilsAnnotations
     implementation libs.slimRxUtils, libs.slimGenericUtils
-    implementation libs.orientDbCore, libs.orientDbClient, libs.orientDbServer, libs.orientDbTools, libs.orientDbLucene, libs.orientDbStudio
+    implementation libs.orientDbCore, libs.orientDbClient, libs.orientDbServer, libs.orientDbLucene
     implementation libs.javaxAnnotationApi
     implementation libs.javaxInject
     implementation libs.guava
@@ -23,5 +23,10 @@ dependencies {
     testImplementation libs.jsr305
     testImplementation libs.slimTestUtils, libs.slimTestUtilsJunit, libs.slimTestUtilsLogback
     testImplementation project(':rxrepo-test')
+    testImplementation libs.commonsIo
     testImplementation libs.junit
+}
+
+test {
+    systemProperty "orientDbVer", libs.orientDbVer
 }

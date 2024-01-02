@@ -5,4 +5,5 @@ dependencies {
     implementation libs.slf4j
     implementation libs.slimGenericUtils
     testImplementation project(':rxrepo-test')
+    testImplementation libs.slimTestUtils, libs.slimTestUtilsLogback
 }

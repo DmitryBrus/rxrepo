@@ -18,7 +18,7 @@ public class DefaultSqlExpressionGenerator implements SqlExpressionGenerator {
     private final Lazy<ExpressionTextGenerator> sqlGenerator;
 
     public DefaultSqlExpressionGenerator() {
-        sqlGenerator = Lazy.of(this::createBuilder)
+        this.sqlGenerator = Lazy.of(this::createBuilder)
                 .map(ExpressionTextGenerator.Builder::build);
     }
 
@@ -43,7 +43,7 @@ public class DefaultSqlExpressionGenerator implements SqlExpressionGenerator {
                 .add(Expression.Type.EndsWith, formatAndFixQuotes("(%s like '%%' + %s)"))
                 .add(Expression.Type.Matches, "(%s like %s)")
                 .add(Expression.Type.Length, "LEN(%s)")
-                .add(Expression.Type.Concat, "(%s + %s)")
+                .add(Expression.Type.Concat, "(%s || %s)")
                 .add(Expression.Type.ToLower, "LOWER(%s)")
                 .add(Expression.Type.ToUpper, "UPPER(%s)")
                 .add(Expression.Type.Trim, "TRIM(%s)")
@@ -78,6 +78,10 @@ public class DefaultSqlExpressionGenerator implements SqlExpressionGenerator {
         return sqlGenerator.get().generate(expression, arg);
     }
 
+    public <S, T> String toSqlExpression(ObjectExpression<S, T> expression, String arg) {
+        return sqlGenerator.get().generate(expression, arg);
+    }
+
     public <S, T> String toSqlExpression(ObjectExpression<S, T> expression, List<Object> params) {
         return withParams(params, () -> toSqlExpression(expression));
     }
@@ -96,19 +100,22 @@ public class DefaultSqlExpressionGenerator implements SqlExpressionGenerator {
         return reduceProperty(expression,
                 Stream.concat(
                         Stream.of(parts),
-                        Stream.of(SqlQueryProvider.sequenceNumField))
+                        Stream.of(SqlFields.sequenceFieldName))
                 .toArray(String[]::new));
     }
 
-    private <S, T> String reduceProperty(ObjectExpression<S, T> expression, String[] parts) {
-        return Streams.concat(
+    protected String fieldName(String fieldName) {
+        return "\"" + fieldName.replace("\"", "") + "\"";
+    }
+
+    protected <S, T> String reduceProperty(ObjectExpression<S, T> expression, String[] parts) {
+        return fieldName(Streams.concat(
                 Arrays.stream(parts).limit(parts.length - 1),
                 Stream.of(Optional.ofNullable(parts[parts.length - 1])
                         .filter(p -> !p.isEmpty())
-                        .map(p -> "`" + p + "`")
                         .orElse("")))
                 .filter(p -> !p.isEmpty())
-                .collect(Collectors.joining("."));
+                .collect(Collectors.joining(".")));
     }
 
     protected ExpressionTextGenerator.Interceptor createInterceptor() {

@@ -1,24 +1,24 @@
 package com.slimgears.rxrepo.query;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.slimgears.rxrepo.expressions.*;
 import com.slimgears.rxrepo.expressions.internal.CollectionPropertyExpression;
 import com.slimgears.rxrepo.filters.Filter;
 import com.slimgears.rxrepo.query.provider.*;
 import com.slimgears.util.autovalue.annotations.HasMetaClass;
 import com.slimgears.util.autovalue.annotations.MetaClassWithKey;
-import com.slimgears.util.rx.Maybes;
 import com.slimgears.util.rx.Observables;
-import com.slimgears.util.rx.Singles;
-import io.reactivex.Observable;
 import io.reactivex.*;
-import io.reactivex.exceptions.CompositeException;
 import io.reactivex.functions.Function;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.Duration;
-import java.util.*;
+import java.util.Collection;
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -63,11 +63,7 @@ public class DefaultEntitySet<K, S> implements EntitySet<K, S> {
                 return queryProvider.delete(builder
                         .metaClass(metaClass)
                         .predicate(predicate.get())
-                        .build())
-                    .compose(Singles.backOffDelayRetry(
-                        DefaultEntitySet::isConcurrencyException,
-                        Duration.ofMillis(config.retryInitialDurationMillis()),
-                        config.retryCount()));
+                        .build());
             }
 
             @Override
@@ -119,11 +115,7 @@ public class DefaultEntitySet<K, S> implements EntitySet<K, S> {
                 return Single
                         .defer(() -> queryProvider.update(builder
                                 .predicate(predicate.get())
-                                .build()))
-                        .compose(Singles.backOffDelayRetry(
-                                DefaultEntitySet::isConcurrencyException,
-                                Duration.ofMillis(config.retryInitialDurationMillis()),
-                                config.retryCount()));
+                                .build()));
             }
 
             @Override
@@ -360,22 +352,13 @@ public class DefaultEntitySet<K, S> implements EntitySet<K, S> {
         return update(entity, true);
     }
 
-    private Single<Supplier<S>> update(S entity, boolean recursive) {
-        return queryProvider.insert(metaClass, Collections.singleton(entity), recursive)
-                .andThen(Single.<Supplier<S>>just(() -> entity))
-                .onErrorResumeNext(e ->
-                        isConcurrencyException(e)
-                        ? Single.defer(() -> queryProvider.insertOrUpdate(metaClass, entity, recursive))
-                                .compose(Singles.backOffDelayRetry(
-                                        DefaultEntitySet::isConcurrencyException,
-                                        Duration.ofMillis(config.retryInitialDurationMillis()),
-                                        config.retryCount()))
-                        : Single.error(e));
-    }
-
     @Override
     public Single<Supplier<S>> updateNonRecursive(S entity) {
         return update(entity, false);
+    }
+
+    private Single<Supplier<S>> update(S entity, boolean recursive) {
+        return queryProvider.insertOrUpdate(metaClass, entity, recursive);
     }
 
     @Override
@@ -389,54 +372,36 @@ public class DefaultEntitySet<K, S> implements EntitySet<K, S> {
     }
 
     private Completable update(Iterable<S> entities, boolean recursive) {
-        return queryProvider.insert(metaClass, entities, recursive)
-                .onErrorResumeNext(e -> isConcurrencyException(e)
-                        ? Completable.defer(() -> Observable
-                                .fromIterable(entities)
-                                .flatMapSingle(this::update)
-                                .ignoreElements())
-                        : Completable.error(e));
+        return Iterables.isEmpty(entities)
+                ? Completable.complete()
+                : queryProvider.insertOrUpdate(metaClass, entities, recursive);
     }
 
     @Override
     public Maybe<Supplier<S>> update(K key, Function<Maybe<S>, Maybe<S>> updater) {
-        return update(key, true, updater);
+        return update(key, updater, true);
     }
 
     @Override
     public Maybe<Supplier<S>> updateNonRecursive(K key, Function<Maybe<S>, Maybe<S>> updater) {
-        return update(key, false, updater);
+        return update(key, updater, false);
     }
 
-    private Maybe<Supplier<S>> update(K key, boolean recursive, Function<Maybe<S>, Maybe<S>> updater) {
+    private Maybe<Supplier<S>> update(K key, Function<Maybe<S>, Maybe<S>> updater, boolean recursive) {
         Function<Maybe<S>, Maybe<S>> filteredUpdater = maybe -> {
             AtomicReference<S> entity = new AtomicReference<>();
             return updater.apply(maybe.doOnSuccess(entity::set))
                     .filter(e -> !Objects.equals(entity.get(), e))
                     .switchIfEmpty(Maybe.fromCallable(entity::get));
         };
-        return Maybe.defer(() -> queryProvider.insertOrUpdate(metaClass, key, recursive, filteredUpdater))
-                .compose(Maybes.backOffDelayRetry(
-                        DefaultEntitySet::isConcurrencyException,
-                        Duration.ofMillis(config.retryInitialDurationMillis()),
-                        config.retryCount()));
-    }
-
-    private static boolean isConcurrencyException(Throwable exception) {
-        log.debug("Checking exception: {}", exception.getMessage(), exception);
-        return exception instanceof ConcurrentModificationException ||
-                exception instanceof NoSuchElementException ||
-                (exception instanceof CompositeException && ((CompositeException)exception)
-                        .getExceptions()
-                        .stream()
-                        .anyMatch(DefaultEntitySet::isConcurrencyException));
+        return queryProvider.insertOrUpdate(metaClass, key, recursive, filteredUpdater);
     }
 
     private static <S> void updatePredicate(AtomicReference<ObjectExpression<S, Boolean>> current, ObjectExpression<S, Boolean> predicate) {
         current.updateAndGet(exp -> Optional
-            .ofNullable(exp)
-            .<ObjectExpression<S, Boolean>>map(ex -> BooleanExpression.and(ex, predicate))
-            .orElse(predicate));
+                .ofNullable(exp)
+                .<ObjectExpression<S, Boolean>>map(ex -> BooleanExpression.and(ex, predicate))
+                .orElse(predicate));
     }
 
     private static <S, T> ObjectExpression<S, T> omitEmptyMapping(ObjectExpression<S, T> expression) {

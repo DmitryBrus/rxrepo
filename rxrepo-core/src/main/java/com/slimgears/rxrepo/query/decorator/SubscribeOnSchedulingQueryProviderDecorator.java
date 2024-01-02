@@ -41,7 +41,7 @@ public class SubscribeOnSchedulingQueryProviderDecorator extends AbstractQueryPr
     }
 
     public static QueryProvider.Decorator createDefault() {
-        return create(Schedulers.computation());
+        return create(Schedulers.computation(), Schedulers.io(), Schedulers.from(Runnable::run));
     }
 
     public static QueryProvider.Decorator create(Scheduler scheduler) {

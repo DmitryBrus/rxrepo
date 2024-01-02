@@ -28,6 +28,10 @@ public interface QueryProvider extends AutoCloseable {
     Completable dropAll();
 
     default <K, S> Completable insert(MetaClassWithKey<K, S> metaClass, Iterable<S> entities, boolean recursive) {
+        return insertOrUpdate(metaClass, entities, recursive);
+    }
+
+    default <K, S> Completable insertOrUpdate(MetaClassWithKey<K, S> metaClass, Iterable<S> entities, boolean recursive) {
         return Observable.fromIterable(entities)
                 .concatMapEager(e -> insertOrUpdate(metaClass, e, recursive).toObservable())
                 .ignoreElements();

@@ -1,15 +1,13 @@
 package com.slimgears.rxrepo.util;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.reflect.TypeToken;
 import com.slimgears.rxrepo.annotations.Searchable;
 import com.slimgears.rxrepo.expressions.*;
-import com.slimgears.rxrepo.query.provider.QueryInfo;
-import com.slimgears.util.autovalue.annotations.MetaClass;
-import com.slimgears.util.autovalue.annotations.MetaClassWithKey;
-import com.slimgears.util.autovalue.annotations.MetaClasses;
-import com.slimgears.util.autovalue.annotations.PropertyMeta;
+import com.slimgears.util.autovalue.annotations.*;
 import com.slimgears.util.stream.Optionals;
 import com.slimgears.util.stream.Streams;
 import org.slf4j.Logger;
@@ -19,17 +17,18 @@ import javax.annotation.Nullable;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-@SuppressWarnings("WeakerAccess")
+@SuppressWarnings({"WeakerAccess", "UnstableApiUsage"})
 public class PropertyExpressions {
     private final static Logger log = LoggerFactory.getLogger(PropertyExpressions.class);
-    private final static Map<PropertyExpression<?, ?, ?>, Collection<PropertyExpression<?, ?, ?>>> relatedMandatoryPropertiesCache = new ConcurrentHashMap<>();
-    private final static Map<TypeToken<?>, Collection<PropertyExpression<?, ?, ?>>> mandatoryPropertiesCache = new ConcurrentHashMap<>();
-    private final static Map<PropertyExpression<?, ?, ?>, Collection<PropertyExpression<?, ?, ?>>> parentProperties = new ConcurrentHashMap<>();
+    private final static Map<PropertyExpression<?, ?, ?>, Collection<PropertyExpression<?, ?, ?>>> relatedMandatoryPropertiesCache = Maps.newConcurrentMap();
+    private final static Map<TypeToken<?>, Collection<PropertyExpression<?, ?, ?>>> mandatoryPropertiesCache = Maps.newConcurrentMap();
+    private final static Map<PropertyExpression<?, ?, ?>, Collection<PropertyExpression<?, ?, ?>>> parentProperties = Maps.newConcurrentMap();
+    private final static Map<MetaClass<?>, Collection<PropertyExpression<?, ?, ?>>> embeddedPropertiesCache = Maps.newConcurrentMap();
+    private final static Map<MetaClass<?>, Collection<PropertyExpressionValueProvider<?, ?, ?>>> embeddedPropertiesProviderCache = Maps.newConcurrentMap();
     private final static ImmutableSet<TypeToken<?>> numericTypes = ImmutableSet.<TypeToken<?>>builder()
             .add(TypeToken.of(int.class), TypeToken.of(Integer.class))
             .add(TypeToken.of(short.class), TypeToken.of(Short.class))
@@ -57,6 +56,34 @@ public class PropertyExpressions {
 
     public static <S, V> PropertyExpression<S, S, V> fromMeta(PropertyMeta<S, V> meta) {
         return fromMeta(ObjectExpression.arg(meta.declaringType().asType()), meta);
+    }
+
+    @SuppressWarnings("unchecked")
+    public static <S> Stream<PropertyExpressionValueProvider<S, ?, ?>> valueProvidersFromMeta(MetaClass<S> metaClass) {
+        return embeddedPropertiesProviderCache.computeIfAbsent(metaClass, PropertyExpressions::providersOf)
+                .stream()
+                .map(p -> (PropertyExpressionValueProvider<S, ?, ?>)p);
+    }
+
+    @SuppressWarnings("unchecked")
+    public static <S> Stream<PropertyExpression<S, ?, ?>> embeddedPropertiesForMeta(MetaClass<S> metaClass) {
+        return embeddedPropertiesCache.computeIfAbsent(metaClass, m -> embeddedPropertiesOf(m.asType())
+                .map(p -> (PropertyExpression<?, ?, ?>)p)
+                .collect(ImmutableList.toImmutableList()))
+                .stream()
+                .map(p -> (PropertyExpression<S, ?, ?>)p);
+    }
+
+    public static <S> boolean isMandatory(PropertyExpression<S, ?, ?> propertyExpression) {
+        return propertyExpression != null
+                && PropertyMetas.isMandatory(propertyExpression.property())
+                && isMandatory(parentOf(propertyExpression));
+    }
+
+    private static Collection<PropertyExpressionValueProvider<?, ?, ?>> providersOf(MetaClass<?> metaClass) {
+        return embeddedPropertiesOf(metaClass.asType())
+                .map(PropertyExpressionValueProvider::fromProperty)
+                .collect(ImmutableList.toImmutableList());
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
@@ -149,6 +176,12 @@ public class PropertyExpressions {
                 : Stream.empty();
     }
 
+    public static <T> Stream<PropertyExpression<T, ?, ?>> embeddedPropertiesOf(TypeToken<T> type) {
+        return PropertyMetas.hasMetaClass(type)
+                ? embeddedPropertiesOf(ObjectExpression.arg(type), new HashSet<>())
+                : Stream.empty();
+    }
+
     public static <T> Stream<PropertyExpression<T, T, ?>> ownPropertiesOf(TypeToken<T> type) {
         return PropertyMetas.hasMetaClass(type)
                 ? ownPropertiesOf(ObjectExpression.arg(type))
@@ -160,6 +193,18 @@ public class PropertyExpressions {
         return Streams
                 .fromIterable(metaClass.properties())
                 .map(prop -> PropertyExpression.ofObject(target, prop));
+    }
+
+    private static <S, T> Stream<PropertyExpression<S, ?, ?>> embeddedPropertiesOf(ObjectExpression<S, T> target, Set<PropertyMeta<?, ?>> visitedProps) {
+        List<PropertyExpression<S, T, ?>> ownProps = ownPropertiesOf(target)
+                .filter(p -> visitedProps.add(p.property()))
+                .collect(Collectors.toList());
+
+        return Stream.concat(
+                ownProps.stream(),
+                ownProps.stream()
+                        .filter(p -> PropertyMetas.isEmbedded(p.property()))
+                        .flatMap(p -> embeddedPropertiesOf(p, visitedProps)));
     }
 
     private static <S, T> Stream<PropertyExpression<S, ?, ?>> propertiesOf(ObjectExpression<S, T> target, Set<PropertyMeta<?, ?>> visitedProps) {
@@ -214,7 +259,7 @@ public class PropertyExpressions {
                 .filter(p -> property.hashCode() == p.hashCode())
                 .flatMap(Optionals.ofType(PropertyExpression.class))
                 .map(p -> Objects.equals(property.target(), p.target()) &&
-                          Objects.equals(property.property(), p.property()))
+                        Objects.equals(property.property(), p.property()))
                 .orElse(false);
     }
 
@@ -287,8 +332,8 @@ public class PropertyExpressions {
     public static <S, T> ImmutableSet<PropertyExpression<S, ?, ?>> unmapProperties(ImmutableSet<PropertyExpression<T, ?, ?>> properties, ObjectExpression<S, T> mapping) {
         return mapping != null
                 ? Optional.ofNullable(properties)
-                        .<ImmutableSet<PropertyExpression<S, ?, ?>>>map(pp -> pp.stream().map(p -> unmapProperty(p, mapping)).collect(ImmutableSet.toImmutableSet()))
-                        .orElse(null)
+                .<ImmutableSet<PropertyExpression<S, ?, ?>>>map(pp -> pp.stream().map(p -> unmapProperty(p, mapping)).collect(ImmutableSet.toImmutableSet()))
+                .orElse(null)
                 : (ImmutableSet<PropertyExpression<S, ?, ?>>)(ImmutableSet<?>)properties;
     }
 

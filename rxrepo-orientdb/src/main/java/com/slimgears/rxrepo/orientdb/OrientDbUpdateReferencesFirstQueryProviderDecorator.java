@@ -4,13 +4,14 @@ import com.slimgears.rxrepo.query.decorator.UpdateReferencesFirstQueryProviderDe
 import com.slimgears.rxrepo.query.provider.QueryProvider;
 import com.slimgears.util.autovalue.annotations.MetaClassWithKey;
 import io.reactivex.Completable;
+import io.reactivex.Maybe;
+import io.reactivex.functions.Function;
+
+import java.util.function.Supplier;
 
 public class OrientDbUpdateReferencesFirstQueryProviderDecorator extends UpdateReferencesFirstQueryProviderDecorator {
-    private final QueryProvider underlyingProvider;
-
     private OrientDbUpdateReferencesFirstQueryProviderDecorator(QueryProvider underlyingProvider) {
         super(underlyingProvider);
-        this.underlyingProvider = underlyingProvider;
     }
 
     public static Decorator create() {
@@ -19,6 +20,6 @@ public class OrientDbUpdateReferencesFirstQueryProviderDecorator extends UpdateR
 
     @Override
     public <K, S> Completable insert(MetaClassWithKey<K, S> metaClass, Iterable<S> entities, boolean recursive) {
-        return underlyingProvider.insert(metaClass, entities, recursive);
+        return super.insert(metaClass, entities, false);
     }
 }

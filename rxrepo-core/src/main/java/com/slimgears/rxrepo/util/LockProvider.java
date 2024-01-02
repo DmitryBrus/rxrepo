@@ -1,8 +1,5 @@
 package com.slimgears.rxrepo.util;
 
-import io.reactivex.Observable;
-import io.reactivex.ObservableTransformer;
-
 import java.util.concurrent.Callable;
 
 public interface LockProvider {

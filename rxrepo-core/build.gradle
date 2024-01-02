@@ -4,7 +4,7 @@ dependencies {
     implementation libs.rxJava
     implementation libs.jsr305
     implementation libs.javaxJsonApi
-    implementation libs.jacksonAnnotations, libs.jacksonDataBind
+    implementation libs.jacksonAnnotations, libs.jacksonCore, libs.jacksonDataBind
     implementation libs.guava
     implementation libs.slimReflectUtils
     implementation libs.slf4j

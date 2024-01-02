@@ -4,33 +4,33 @@ import com.slimgears.rxrepo.expressions.Aggregator;
 import com.slimgears.rxrepo.query.Notification;
 import com.slimgears.rxrepo.query.provider.QueryInfo;
 import com.slimgears.rxrepo.query.provider.QueryProvider;
-import com.slimgears.rxrepo.util.SchedulingProvider;
 import io.reactivex.Observable;
+import io.reactivex.Scheduler;
 
 public class ObserveOnSchedulingQueryProviderDecorator extends AbstractQueryProviderDecorator {
-    private final SchedulingProvider schedulingProvider;
+    private final Scheduler scheduler;
 
-    private ObserveOnSchedulingQueryProviderDecorator(QueryProvider underlyingProvider, SchedulingProvider schedulingProvider) {
+    private ObserveOnSchedulingQueryProviderDecorator(QueryProvider underlyingProvider, Scheduler scheduler) {
         super(underlyingProvider);
-        this.schedulingProvider = schedulingProvider;
+        this.scheduler = scheduler;
     }
 
-    public static QueryProvider.Decorator create(SchedulingProvider schedulingProvider) {
-        return src -> new ObserveOnSchedulingQueryProviderDecorator(src, schedulingProvider);
+    public static QueryProvider.Decorator create(Scheduler scheduler) {
+        return src -> new ObserveOnSchedulingQueryProviderDecorator(src, scheduler);
     }
 
     @Override
     public <K, S, T> Observable<Notification<T>> queryAndObserve(QueryInfo<K, S, T> queryInfo, QueryInfo<K, S, T> observeInfo) {
-        return schedulingProvider.scope(() -> super.queryAndObserve(queryInfo, observeInfo));
+        return super.queryAndObserve(queryInfo, observeInfo).observeOn(scheduler);
     }
 
     @Override
     public <K, S, T> Observable<Notification<T>> liveQuery(QueryInfo<K, S, T> query) {
-        return schedulingProvider.scope(() -> super.liveQuery(query));
+        return super.liveQuery(query).observeOn(scheduler);
     }
 
     @Override
     public <K, S, T, R> Observable<R> liveAggregate(QueryInfo<K, S, T> query, Aggregator<T, T, R> aggregator) {
-        return schedulingProvider.scope(() -> super.liveAggregate(query, aggregator));
+        return super.liveAggregate(query, aggregator).observeOn(scheduler);
     }
 }
