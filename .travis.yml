@@ -29,9 +29,11 @@ deploy:
   skip_cleanup: true
   on:
     tags: true
-
-before_deploy:
-- openssl aes-256-cbc -K $encrypted_2e6b62dd1b86_key -iv $encrypted_2e6b62dd1b86_iv -in key.gpg.enc -out key.gpg -d
-
 before_install:
-- openssl aes-256-cbc -K $encrypted_2e6b62dd1b86_key -iv $encrypted_2e6b62dd1b86_iv -in key.gpg.enc -out key.gpg -d
+  - openssl aes-256-cbc -K $encrypted_2e6b62dd1b86_key -iv $encrypted_2e6b62dd1b86_iv -in key.gpg.enc -out key.gpg -d
+#  - sudo curl -L --fail https://github.com/docker/compose/releases/download/${DOCKER_COMPOSE_VERSION}/run.sh -o /usr/local/bin/docker-compose
+#  - sudo chmod +x /usr/local/bin/docker-compose
+#addons:
+#  apt:
+#    packages:
+#      - docker-ce
